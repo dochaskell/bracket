@@ -306,6 +306,28 @@
       flex: 1 1 auto;
     }
 
+    .team-autofill {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.05);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      border: 1px solid rgba(15,23,42,0.08);
+    }
+
+    .team-autofill {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.05);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      border: 1px solid rgba(15,23,42,0.08);
+    }
+
     .team-card {
       background: var(--panel-2);
       border: 1px solid rgba(15,23,42,0.08);
@@ -348,6 +370,14 @@
       align-items: end;
     }
 
+    .school-name-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 8px;
+      align-items: center;
+    }
+
     .team-fields label {
       grid-column: 1 / -1;
       font-size: 12px;
@@ -358,6 +388,34 @@
     }
 
     .team-name-input,
+    .team-school-input,
+    .team-hex-input,
+    .team-color-input {
+      width: 100%;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 12px;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      font: inherit;
+    }
+
+    .team-school-select {
+      width: 100%;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 12px;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      font: inherit;
+      height: 42px;
+      padding: 0 10px;
+      background: white;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .team-name-input,
+    .team-school-input,
     .team-hex-input,
     .team-color-input {
       width: 100%;
@@ -369,6 +427,7 @@
     }
 
     .team-name-input,
+    .team-school-input,
     .team-hex-input {
       height: 42px;
       padding: 0 12px;
@@ -398,6 +457,8 @@
     }
 
     .team-name-input:focus,
+    .team-school-input:focus,
+    .team-school-select:focus,
     .team-hex-input:focus,
     .team-color-input:focus {
       border-color: rgba(15,23,42,0.28);
@@ -447,7 +508,7 @@
   <div class="scene">
     <div class="card" id="card">
       <section class="face front">
-        <button class="flip-corner" id="flipToEdit" aria-label="Flip to edit mode"></button>
+        <button type="button" class="flip-corner" id="flipToEdit" aria-label="Flip to edit mode" title="Edit" onclick="document.getElementById('card').classList.add('flipped'); return false;"></button>
         <div class="bracket-wrap">
           <div class="bracket-grid">
             <div class="round-title" style="grid-column:1;grid-row:1;">Winners Round 1</div>
@@ -624,14 +685,15 @@
       </section>
 
       <section class="face back">
-        <button class="flip-corner" id="flipToView" aria-label="Flip to bracket view"></button>
+        <button type="button" class="flip-corner" id="flipToView" aria-label="Flip to bracket view" title="View" onclick="document.getElementById('card').classList.remove('flipped'); return false;"></button>
         <div class="panel-shell">
           <div class="panel">
             <div>
               <h1>Bracket Setup</h1>
-              <p>Enter the 9 team names and choose a hex color for each team. Order follows the bracket from top to bottom.</p>
+              <p>Enter the school or choose from the preset list. Known schools auto-fill the official hex color. Order follows the bracket from top to bottom.</p>
             </div>
             <div class="team-list" id="teamList"></div>
+            <div class="team-autofill">Preset schools: Boise State, Syracuse, Michigan State, Ohio State, Kansas, Nebraska, Baylor, Minnesota, Utah.</div>
             <div class="toolbar">
               <button class="action" id="resetBracketBtn">Reset Bracket</button>
               <button class="action secondary" id="undoBtn">Undo</button>
@@ -649,32 +711,37 @@
   <script>
     const defaultState = () => ({
       teams: [
-        { id: 't1', name: 'Seed 1', color: '#f59e0b' },
-        { id: 't9', name: 'Seed 9', color: '#64748b' },
-        { id: 't8', name: 'Seed 8', color: '#94a3b8' },
-        { id: 't5', name: 'Seed 5', color: '#ef4444' },
-        { id: 't4', name: 'Seed 4', color: '#06b6d4' },
-        { id: 't3', name: 'Seed 3', color: '#ec4899' },
-        { id: 't6', name: 'Seed 6', color: '#3b82f6' },
-        { id: 't7', name: 'Seed 7', color: '#22c55e' },
-        { id: 't2', name: 'Seed 2', color: '#8b5cf6' }
+        { id: 't1', name: 'Seed 1', color: '#F59E0B' },
+        { id: 't9', name: 'Seed 9', color: '#64748B' },
+        { id: 't8', name: 'Seed 8', color: '#94A3B8' },
+        { id: 't5', name: 'Seed 5', color: '#EF4444' },
+        { id: 't4', name: 'Seed 4', color: '#06B6D4' },
+        { id: 't3', name: 'Seed 3', color: '#EC4899' },
+        { id: 't6', name: 'Seed 6', color: '#3B82F6' },
+        { id: 't7', name: 'Seed 7', color: '#22C55E' },
+        { id: 't2', name: 'Seed 2', color: '#8B5CF6' }
       ],
       winners: {},
       history: []
     });
 
-    const STORAGE_KEY = 'double-elim-bracket-state-v2';
-    let state = loadState();
+    const STORAGE_KEY = 'double-elim-bracket-state-v5';
+    const SCHOOL_PRESETS = {
+      'Boise State': { colorName: 'Blue', hex: '#0033A0' },
+      'Syracuse': { colorName: 'Orange', hex: '#F76900' },
+      'Michigan State': { colorName: 'Spartan Green', hex: '#18453B' },
+      'Ohio State': { colorName: 'Scarlet', hex: '#BB0000' },
+      'Kansas': { colorName: 'KU Blue', hex: '#0051BA' },
+      'Nebraska': { colorName: 'Husker Red', hex: '#E41C38' },
+      'Baylor': { colorName: 'Baylor Green', hex: '#003015' },
+      'Minnesota': { colorName: 'Maroon', hex: '#7A0019' },
+      'Utah': { colorName: 'Crimson', hex: '#CC0000' }
+    };
+    const SCHOOL_OPTIONS = Object.keys(SCHOOL_PRESETS);
 
-    const card = document.getElementById('card');
-    const flipToEdit = document.getElementById('flipToEdit');
-    const flipToView = document.getElementById('flipToView');
-    const teamList = document.getElementById('teamList');
-    const previewFrame = document.getElementById('previewFrame');
-    const slotElements = [...document.querySelectorAll('.slot[data-match]')];
+    const TEAM_SLOT_LABELS = ['Seed 1', 'Seed 9', 'Seed 8', 'Seed 5', 'Seed 4', 'Seed 3', 'Seed 6', 'Seed 7', 'Seed 2'];
 
     const matchOrder = ['A','B','C','E','D','J','K','L','F','G','N','O','H','P','Q','I'];
-
     const sourceMatches = {
       A: { top: ['seed', 2], bottom: ['seed', 1] },
       B: { top: ['seed', 0], bottom: ['winner', 'A'] },
@@ -683,7 +750,6 @@
       D: { top: ['seed', 7], bottom: ['seed', 8] },
       J: { top: ['loser', 'E'], bottom: ['loser', 'A'] },
       K: { top: ['loser', 'D'], bottom: ['winner', 'J'] },
-      
       L: { top: ['loser', 'B'], bottom: ['loser', 'C'] },
       F: { top: ['winner', 'B'], bottom: ['winner', 'C'] },
       G: { top: ['winner', 'D'], bottom: ['winner', 'E'] },
@@ -694,6 +760,15 @@
       Q: { top: ['winner', 'P'], bottom: ['loser', 'H'] },
       I: { top: ['winner', 'H'], bottom: ['winner', 'Q'] }
     };
+
+    let state = loadState();
+
+    const card = document.getElementById('card');
+    const flipToEdit = document.getElementById('flipToEdit');
+    const flipToView = document.getElementById('flipToView');
+    const teamList = document.getElementById('teamList');
+    const previewFrame = document.getElementById('previewFrame');
+    const slotElements = [...document.querySelectorAll('.slot[data-match]')];
 
     function loadState() {
       try {
@@ -718,6 +793,58 @@
       return JSON.parse(JSON.stringify(input));
     }
 
+    function normalizeHex(value) {
+      return /^#[0-9A-Fa-f]{6}$/.test(String(value || '')) ? String(value).toUpperCase() : '#94A3B8';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeHtmlAttr(str) {
+      return escapeHtml(str);
+    }
+
+    function findPresetByName(name) {
+      const trimmed = String(name || '').trim().toLowerCase();
+      if (!trimmed) return null;
+      return SCHOOL_OPTIONS.find((school) => school.toLowerCase() === trimmed) || null;
+    }
+
+    function buildSchoolOptions(selectedName) {
+      const selected = findPresetByName(selectedName) || '';
+      return '<option value="">Select school</option>' + SCHOOL_OPTIONS.map((school) => {
+        const isSelected = school === selected ? ' selected' : '';
+        return `<option value="${escapeHtmlAttr(school)}"${isSelected}>${escapeHtml(school)}</option>`;
+      }).join('');
+    }
+
+    function syncCardName(cardWrap, value) {
+      const schoolInput = cardWrap?.querySelector('input[data-type="school"]');
+      const nameInput = cardWrap?.querySelector('input[data-type="name"]');
+      const schoolSelect = cardWrap?.querySelector('select[data-type="school-select"]');
+      if (schoolInput) schoolInput.value = value;
+      if (nameInput) nameInput.value = value;
+      if (schoolSelect) schoolSelect.innerHTML = buildSchoolOptions(value);
+    }
+
+    function syncCardColor(cardWrap, value) {
+      const safe = normalizeHex(value);
+      const swatch = cardWrap?.querySelector('.color-preview');
+      const hex = cardWrap?.querySelector('.color-hex');
+      const picker = cardWrap?.querySelector('input[data-type="picker"]');
+      const hexInput = cardWrap?.querySelector('input[data-type="color"]');
+      if (swatch) swatch.style.background = safe;
+      if (hex) hex.textContent = safe;
+      if (picker) picker.value = safe;
+      if (hexInput) hexInput.value = safe;
+    }
+
     function normalizeState() {
       let changed = true;
       while (changed) {
@@ -738,11 +865,7 @@
     function computeBracket(teams, winners) {
       const matches = {};
       const resolved = {};
-
-      function seed(index) {
-        return teams[index] || null;
-      }
-
+      function seed(index) { return teams[index] || null; }
       function resolveRef(ref) {
         const [type, value] = ref;
         if (type === 'seed') return seed(value);
@@ -752,7 +875,6 @@
         if (type === 'loser') return source.loser || null;
         return null;
       }
-
       for (const matchId of matchOrder) {
         const refs = sourceMatches[matchId];
         const top = resolveRef(refs.top);
@@ -763,15 +885,11 @@
         matches[matchId] = { id: matchId, top, bottom, selectedId };
         resolved[matchId] = { winner, loser };
       }
-
       return { matches, resolved };
     }
 
     function pushHistory() {
-      state.history.push({
-        winners: cloneState(state.winners),
-        teams: cloneState(state.teams)
-      });
+      state.history.push({ winners: cloneState(state.winners), teams: cloneState(state.teams) });
       if (state.history.length > 100) state.history.shift();
     }
 
@@ -781,8 +899,7 @@
         const seededTeam = state.teams[value];
         return seededTeam?.name || `Seed ${value + 1}`;
       }
-      const prefix = type === 'winner' ? 'Winner' : 'Loser';
-      return `${prefix} ${value}`;
+      return `${type === 'winner' ? 'Winner' : 'Loser'} ${value}`;
     }
 
     function teamMarkup(team, fallbackLabel) {
@@ -793,8 +910,7 @@
     function applySlot(el, team, fallbackLabel) {
       el.innerHTML = teamMarkup(team, fallbackLabel);
       el.classList.toggle('empty', !team || !team.name);
-      const accent = team?.color || '#cbd5e1';
-      el.style.setProperty('--accent', accent);
+      el.style.setProperty('--accent', team?.color || '#CBD5E1');
       el.style.background = team ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.96)';
     }
 
@@ -827,15 +943,10 @@
     }
 
     function renderEditor() {
-      const active = document.activeElement;
-      const activeIndex = active?.dataset?.index ?? null;
-      const activeType = active?.dataset?.type ?? null;
-      const selectionStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
-      const selectionEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
-
       teamList.innerHTML = '';
       state.teams.forEach((team, index) => {
-        const safeColor = normalizeHex(team.color).toUpperCase();
+        const safeColor = normalizeHex(team.color);
+        const slotLabel = TEAM_SLOT_LABELS[index] || `Seed ${index + 1}`;
         const cardEl = document.createElement('div');
         cardEl.className = 'team-card';
         cardEl.innerHTML = `
@@ -844,149 +955,83 @@
             <div class="color-hex">${escapeHtml(safeColor)}</div>
           </div>
           <div class="team-fields">
-            <label>Team ${index + 1}</label>
+            <label>${escapeHtml(slotLabel)}</label>
+            <div class="school-name-row">
+              <input class="team-school-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="school" data-index="${index}" maxlength="28" list="schoolPresetList" />
+              <select class="team-school-select" data-type="school-select" data-index="${index}">${buildSchoolOptions(team.name)}</select>
+            </div>
             <input class="team-name-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="name" data-index="${index}" maxlength="28" />
             <div class="color-controls">
               <input class="team-color-input" type="color" value="${escapeHtmlAttr(safeColor)}" data-type="picker" data-index="${index}" />
               <input class="team-hex-input" type="text" value="${escapeHtmlAttr(safeColor)}" data-type="color" data-index="${index}" maxlength="7" />
             </div>
-          </div>
-        `;
+          </div>`;
         teamList.appendChild(cardEl);
       });
 
-      teamList.querySelectorAll('input').forEach((input) => {
-        if (input.dataset.type === 'name') {
-          input.addEventListener('focus', () => {
-            input.dataset.lastValue = input.value;
-          });
-
+      teamList.querySelectorAll('input, select').forEach((input) => {
+        if (input.dataset.type === 'name' || input.dataset.type === 'school') {
           input.addEventListener('input', (e) => {
             const idx = Number(e.target.dataset.index);
-            state.teams[idx].name = e.target.value;
+            const cardWrap = e.target.closest('.team-card');
+            let value = e.target.value;
+            const preset = findPresetByName(value);
+            if (preset) {
+              value = preset;
+              state.teams[idx].name = preset;
+              state.teams[idx].color = SCHOOL_PRESETS[preset].hex;
+              syncCardColor(cardWrap, SCHOOL_PRESETS[preset].hex);
+            } else {
+              state.teams[idx].name = value;
+            }
+            syncCardName(cardWrap, value);
             renderBracket();
           });
+          input.addEventListener('change', () => saveState());
+        }
 
+        if (input.dataset.type === 'school-select') {
           input.addEventListener('change', (e) => {
             const idx = Number(e.target.dataset.index);
-            const previousValue = e.target.dataset.lastValue ?? '';
-            const currentValue = state.teams[idx].name;
-            if (previousValue !== currentValue) {
-              state.history.push({
-                winners: cloneState(state.winners),
-                teams: cloneState(state.teams.map((team, teamIndex) => teamIndex === idx ? { ...team, name: previousValue } : team))
-              });
-              if (state.history.length > 100) state.history.shift();
+            const selectedSchool = e.target.value;
+            if (selectedSchool && SCHOOL_PRESETS[selectedSchool]) {
+              state.teams[idx].name = selectedSchool;
+              state.teams[idx].color = SCHOOL_PRESETS[selectedSchool].hex;
+              const cardWrap = e.target.closest('.team-card');
+              syncCardName(cardWrap, selectedSchool);
+              syncCardColor(cardWrap, SCHOOL_PRESETS[selectedSchool].hex);
+              renderBracket();
+              saveState();
             }
-            e.target.dataset.lastValue = currentValue;
-            saveState();
           });
         }
 
         if (input.dataset.type === 'color') {
-          input.addEventListener('focus', () => {
-            input.dataset.lastValue = normalizeHex(input.value).toUpperCase();
-          });
-
           input.addEventListener('input', (e) => {
             const idx = Number(e.target.dataset.index);
             let value = e.target.value.trim().toUpperCase();
             if (!value.startsWith('#')) value = '#' + value;
             e.target.value = value;
-            if (!/^#[0-9A-F]{0,6}$/.test(value)) return;
-            state.teams[idx].color = value;
-            const cardWrap = e.target.closest('.team-card');
-            const swatch = cardWrap?.querySelector('.color-preview');
-            const hex = cardWrap?.querySelector('.color-hex');
-            const picker = cardWrap?.querySelector('input[data-type="picker"]');
-            if (swatch && /^#[0-9A-F]{6}$/.test(value)) swatch.style.background = value;
-            if (hex) hex.textContent = value;
-            if (picker && /^#[0-9A-F]{6}$/.test(value)) picker.value = value;
-            renderBracket();
-          });
-
-          input.addEventListener('change', (e) => {
-            const idx = Number(e.target.dataset.index);
-            const previousValue = normalizeHex(e.target.dataset.lastValue || state.teams[idx].color).toUpperCase();
-            let value = e.target.value.trim().toUpperCase();
-            if (!value.startsWith('#')) value = '#' + value;
-            value = normalizeHex(value).toUpperCase();
-            state.teams[idx].color = value;
-            e.target.value = value;
-            const cardWrap = e.target.closest('.team-card');
-            const swatch = cardWrap?.querySelector('.color-preview');
-            const hex = cardWrap?.querySelector('.color-hex');
-            const picker = cardWrap?.querySelector('input[data-type="picker"]');
-            if (swatch) swatch.style.background = value;
-            if (hex) hex.textContent = value;
-            if (picker) picker.value = value;
-            if (previousValue !== value) {
-              state.history.push({
-                winners: cloneState(state.winners),
-                teams: cloneState(state.teams.map((team, teamIndex) => teamIndex === idx ? { ...team, color: previousValue } : team))
-              });
-              if (state.history.length > 100) state.history.shift();
+            if (/^#[0-9A-F]{6}$/.test(value)) {
+              state.teams[idx].color = value;
+              syncCardColor(e.target.closest('.team-card'), value);
+              renderBracket();
             }
-            e.target.dataset.lastValue = value;
-            saveState();
-            renderBracket();
           });
+          input.addEventListener('change', () => saveState());
         }
 
         if (input.dataset.type === 'picker') {
-          input.addEventListener('focus', () => {
-            input.dataset.lastValue = normalizeHex(input.value).toUpperCase();
-          });
-
           input.addEventListener('input', (e) => {
             const idx = Number(e.target.dataset.index);
-            const value = normalizeHex(e.target.value).toUpperCase();
+            const value = normalizeHex(e.target.value);
             state.teams[idx].color = value;
-            const cardWrap = e.target.closest('.team-card');
-            const swatch = cardWrap?.querySelector('.color-preview');
-            const hex = cardWrap?.querySelector('.color-hex');
-            const hexInput = cardWrap?.querySelector('input[data-type="color"]');
-            if (swatch) swatch.style.background = value;
-            if (hex) hex.textContent = value;
-            if (hexInput) hexInput.value = value;
+            syncCardColor(e.target.closest('.team-card'), value);
             renderBracket();
           });
-
-          input.addEventListener('change', (e) => {
-            const idx = Number(e.target.dataset.index);
-            const previousValue = normalizeHex(e.target.dataset.lastValue || state.teams[idx].color).toUpperCase();
-            const value = normalizeHex(e.target.value).toUpperCase();
-            state.teams[idx].color = value;
-            const cardWrap = e.target.closest('.team-card');
-            const swatch = cardWrap?.querySelector('.color-preview');
-            const hex = cardWrap?.querySelector('.color-hex');
-            const hexInput = cardWrap?.querySelector('input[data-type="color"]');
-            if (swatch) swatch.style.background = value;
-            if (hex) hex.textContent = value;
-            if (hexInput) hexInput.value = value;
-            if (previousValue !== value) {
-              state.history.push({
-                winners: cloneState(state.winners),
-                teams: cloneState(state.teams.map((team, teamIndex) => teamIndex === idx ? { ...team, color: previousValue } : team))
-              });
-              if (state.history.length > 100) state.history.shift();
-            }
-            e.target.dataset.lastValue = value;
-            saveState();
-            renderBracket();
-          });
+          input.addEventListener('change', () => saveState());
         }
       });
-
-      if (activeIndex !== null && activeType !== null) {
-        const replacement = teamList.querySelector(`input[data-index="${activeIndex}"][data-type="${activeType}"]`);
-        if (replacement) {
-          replacement.focus();
-          if ((activeType === 'name' || activeType === 'color') && selectionStart !== null && selectionEnd !== null) {
-            replacement.setSelectionRange(selectionStart, selectionEnd);
-          }
-        }
-      }
     }
 
     function handleSlotClick(event) {
@@ -998,11 +1043,8 @@
       const team = match?.[side];
       if (!team) return;
       pushHistory();
-      if (state.winners[matchId] === team.id) {
-        delete state.winners[matchId];
-      } else {
-        state.winners[matchId] = team.id;
-      }
+      if (state.winners[matchId] === team.id) delete state.winners[matchId];
+      else state.winners[matchId] = team.id;
       renderBracket();
     }
 
@@ -1028,34 +1070,21 @@
       renderBracket();
     }
 
-    function normalizeHex(value) {
-      return /^#[0-9A-Fa-f]{6}$/.test(value) ? value : '#94A3B8';
+    if (!document.getElementById('schoolPresetList')) {
+      const datalist = document.createElement('datalist');
+      datalist.id = 'schoolPresetList';
+      datalist.innerHTML = SCHOOL_OPTIONS.map((school) => `<option value="${escapeHtmlAttr(school)}"></option>`).join('');
+      document.body.appendChild(datalist);
     }
 
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    function escapeHtmlAttr(str) {
-      return escapeHtml(str);
-    }
-
-    flipToEdit.addEventListener('click', () => card.classList.add('flipped'));
-    flipToView.addEventListener('click', () => card.classList.remove('flipped'));
-
-    document.getElementById('undoBtn').addEventListener('click', undo);
-    document.getElementById('resetBracketBtn').addEventListener('click', resetBracket);
-    document.getElementById('clearAllBtn').addEventListener('click', clearAll);
-
+    flipToEdit?.addEventListener('click', () => { card.classList.add('flipped'); renderEditor(); });
+    flipToView?.addEventListener('click', () => card.classList.remove('flipped'));
+    document.getElementById('undoBtn')?.addEventListener('click', undo);
+    document.getElementById('resetBracketBtn')?.addEventListener('click', resetBracket);
+    document.getElementById('clearAllBtn')?.addEventListener('click', clearAll);
     slotElements.forEach((el) => el.addEventListener('click', handleSlotClick));
 
     renderEditor();
     renderBracket();
   </script>
-</body>
-</html>
+</body></html>
