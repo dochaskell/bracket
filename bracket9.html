@@ -725,7 +725,7 @@
       history: []
     });
 
-    const STORAGE_KEY = 'double-elim-bracket-state-v5';
+    const STORAGE_KEY = 'double-elim-bracket-state-v6';
     const SCHOOL_PRESETS = {
       'Boise State': { colorName: 'Blue', hex: '#0033A0' },
       'Syracuse': { colorName: 'Orange', hex: '#F76900' },
@@ -739,7 +739,8 @@
     };
     const SCHOOL_OPTIONS = Object.keys(SCHOOL_PRESETS);
 
-    const TEAM_SLOT_LABELS = ['Seed 1', 'Seed 9', 'Seed 8', 'Seed 5', 'Seed 4', 'Seed 3', 'Seed 6', 'Seed 7', 'Seed 2'];
+    const TEAM_SLOT_LABELS = ['Seed 1','Seed 2','Seed 3','Seed 4','Seed 5','Seed 6','Seed 7','Seed 8','Seed 9'];
+    const SEED_TO_STATE_INDEX = [0, 8, 5, 4, 3, 6, 7, 2, 1];
 
     const matchOrder = ['A','B','C','E','D','J','K','L','F','G','N','O','H','P','Q','I'];
     const sourceMatches = {
@@ -944,9 +945,10 @@
 
     function renderEditor() {
       teamList.innerHTML = '';
-      state.teams.forEach((team, index) => {
+      TEAM_SLOT_LABELS.forEach((slotLabel, displayIndex) => {
+        const stateIndex = SEED_TO_STATE_INDEX[displayIndex];
+        const team = state.teams[stateIndex];
         const safeColor = normalizeHex(team.color);
-        const slotLabel = TEAM_SLOT_LABELS[index] || `Seed ${index + 1}`;
         const cardEl = document.createElement('div');
         cardEl.className = 'team-card';
         cardEl.innerHTML = `
@@ -957,13 +959,13 @@
           <div class="team-fields">
             <label>${escapeHtml(slotLabel)}</label>
             <div class="school-name-row">
-              <input class="team-school-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="school" data-index="${index}" maxlength="28" list="schoolPresetList" />
-              <select class="team-school-select" data-type="school-select" data-index="${index}">${buildSchoolOptions(team.name)}</select>
+              <input class="team-school-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="school" data-index="${stateIndex}" maxlength="28" list="schoolPresetList" />
+              <select class="team-school-select" data-type="school-select" data-index="${stateIndex}">${buildSchoolOptions(team.name)}</select>
             </div>
-            <input class="team-name-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="name" data-index="${index}" maxlength="28" />
+            <input class="team-name-input" type="text" value="${escapeHtmlAttr(team.name)}" data-type="name" data-index="${stateIndex}" maxlength="28" />
             <div class="color-controls">
-              <input class="team-color-input" type="color" value="${escapeHtmlAttr(safeColor)}" data-type="picker" data-index="${index}" />
-              <input class="team-hex-input" type="text" value="${escapeHtmlAttr(safeColor)}" data-type="color" data-index="${index}" maxlength="7" />
+              <input class="team-color-input" type="color" value="${escapeHtmlAttr(safeColor)}" data-type="picker" data-index="${stateIndex}" />
+              <input class="team-hex-input" type="text" value="${escapeHtmlAttr(safeColor)}" data-type="color" data-index="${stateIndex}" maxlength="7" />
             </div>
           </div>`;
         teamList.appendChild(cardEl);
