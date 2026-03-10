@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Double Elimination Bracket</title>
+  <style>
+    :root {
+      --bg: #00b140;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-2: rgba(255, 255, 255, 0.88);
+      --text: #15202b;
+      --muted: #64748b;
+      --line: rgba(15, 23, 42, 0.2);
+      --line-strong: rgba(15, 23, 42, 0.38);
+      --slot: rgba(255, 255, 255, 0.98);
+      --slot-border: rgba(15, 23, 42, 0.12);
+      --shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+      --radius: 18px;
+      --transition: 260ms ease;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: var(--font);
+      color: var(--text);
+    }
+
+    body {
+      position: relative;
+    }
+
+    .scene {
+      width: 100%;
+      height: 100%;
+      perspective: 1800px;
+      position: relative;
+    }
+
+    .card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      overflow: hidden;
+    }
+
+    .front {
+      background: var(--bg);
+    }
+
+    .back {
+      transform: rotateY(180deg);
+      background: var(--bg);
+      padding: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+
+    .flip-corner {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 74px;
+      height: 74px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      z-index: 20;
+    }
+
+    .flip-corner::before {
+      display: none;
+    }
+
+    .flip-corner::after {
+      content: "Edit";
+      position: absolute;
+      top: 12px;
+      right: 6px;
+      transform: rotate(45deg);
+      transform-origin: center;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(15, 23, 42, 0.7);
+      opacity: 0;
+      transition: opacity var(--transition);
+      pointer-events: none;
+    }
+
+    .back .flip-corner::after {
+      content: "View";
+    }
+
+    .flip-corner:hover::before {
+      transform: translate(-2px, 2px);
+    }
+
+    .flip-corner:hover::after {
+      opacity: 1;
+    }
+
+    .bracket-wrap {
+      position: absolute;
+      inset: 24px;
+      border-radius: 28px;
+      background: transparent;
+      box-shadow: none;
+      overflow: hidden;
+    }
+
+    .bracket-grid {
+      position: absolute;
+      inset: 28px;
+      display: grid;
+      grid-template-columns: 430px 430px 430px 330px;
+      column-gap: 28px;
+      grid-template-rows: 88px 470px 78px 232px;
+      row-gap: 18px;
+    }
+
+    .round-title {
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.96);
+      text-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      align-self: end;
+    }
+
+    .title.small {
+      font-size: 24px;
+    }
+
+    .column { position: relative; }
+
+    .stack { position: absolute; inset: 0; }
+
+    .match {
+      position: absolute;
+      width: 360px;
+      height: 104px;
+    }
+
+    .match.wide { width: 390px; }
+    .match.narrow { width: 300px; }
+
+    .match-body {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.08);
+      border-radius: 18px;
+    }
+
+    .slot {
+      z-index: 2;
+      position: absolute;
+      left: 0;
+      width: 290px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      background: var(--slot);
+      border: 1px solid var(--slot-border);
+      border-right: 6px solid var(--accent, rgba(15,23,42,0.16));
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      border-radius: 14px;
+    }
+
+    .slot.top { top: 8px; }
+    .slot.bottom { top: 54px; }
+
+    .slot.clickable {
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    }
+
+    .slot.clickable:hover:not(.empty) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.13);
+    }
+
+    .slot.selected {
+      outline: 3px solid rgba(15, 23, 42, 0.14);
+      outline-offset: 2px;
+    }
+
+    .slot.empty {
+      color: rgba(100, 116, 139, 0.78);
+      border-style: dashed;
+      border-right-style: solid;
+    }
+
+    .slot .name {
+      font-weight: 800;
+      font-size: 20px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .connector {
+      z-index: 0;
+      position: absolute;
+      right: 20px;
+      width: 66px;
+      border-right: 4px solid var(--line-strong);
+      border-top: 4px solid var(--line-strong);
+      border-bottom: 4px solid var(--line-strong);
+      border-top-right-radius: 14px;
+      border-bottom-right-radius: 14px;
+    }
+
+    .connector.short { height: 44px; top: 30px; }
+    .connector.medium { height: 74px; top: 14px; }
+    .connector.tall { height: 128px; top: -8px; }
+    .connector.xtall { height: 166px; top: -28px; }
+
+    .connector.midline {
+      z-index: 0;
+      position: absolute;
+      right: -58px;
+      top: 50px;
+      width: 58px;
+      border-top: 4px solid var(--line-strong);
+    }
+
+    .winner-column .match { left: 32px; }
+    .semis-column .match { left: 24px; }
+    .final-column .match { left: 16px; }
+    .grand-column .match { left: 12px; }
+
+    .label-badge {
+      z-index: 3;
+      position: absolute;
+      left: -18px;
+      top: 37px;
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.24);
+      color: white;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+    }
+
+    .front-footer {
+      position: absolute;
+      bottom: 14px;
+      left: 32px;
+      font-size: 16px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.88);
+      letter-spacing: 0.02em;
+    }
+
+    .panel-shell {
+      position: absolute;
+      inset: 24px;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 560px 1fr;
+      gap: 28px;
+    }
+
+    .panel, .preview {
+      background: var(--panel);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .panel h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.05;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .team-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    .team-card {
+      background: var(--panel-2);
+      border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 20px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .color-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-preview {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      border: 1px solid rgba(15,23,42,0.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    .color-hex {
+      width: 58px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .team-fields {
+      display: grid;
+      gap: 8px;
+    }
+
+    .team-fields label {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .team-fields input[type="text"] {
+      width: 100%;
+      height: 46px;
+      border-radius: 12px;
+      border: 1px solid rgba(15,23,42,0.12);
+      padding: 0 14px;
+      font-size: 18px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .team-fields input[type="text"]:focus,
+    .team-fields input[type="color"]:focus {
+      border-color: rgba(15,23,42,0.28);
+      box-shadow: 0 0 0 4px rgba(15,23,42,0.08);
+    }
+
+    .team-fields input[type="color"] {
+      width: 100%;
+      height: 44px;
+      border: 1px solid rgba(15,23,42,0.12);
+      border-radius: 12px;
+      padding: 4px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-top: auto;
+    }
+
+    button.action {
+      height: 52px;
+      border: 0;
+      border-radius: 14px;
+      background: #0f172a;
+      color: white;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+
+    button.action.secondary {
+      background: #334155;
+    }
+
+    button.action.light {
+      background: #e2e8f0;
+      color: #0f172a;
+      box-shadow: none;
+    }
+
+    button.action:hover {
+      transform: translateY(-1px);
+    }
+
+    .preview {
+      position: relative;
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    .preview iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 18px;
+      background: var(--bg);
+    }
+  </style>
+</head>
+<body>
+  <div class="scene">
+    <div class="card" id="card">
+      <section class="face front">
+        <button class="flip-corner" id="flipToEdit" aria-label="Flip to edit mode"></button>
+        <div class="bracket-wrap">
+          <div class="bracket-grid">
+            <div class="round-title" style="grid-column:1;grid-row:1;">Winners Round 1</div>
+            <div class="round-title" style="grid-column:2;grid-row:1;">Winners Semi Final</div>
+            <div class="round-title" style="grid-column:3;grid-row:1;">Winners Final</div>
+            <div class="round-title" style="grid-column:4;grid-row:1;">Grand Final</div>
+
+            <div class="column winner-column" style="grid-column:1;grid-row:2;">
+              <div class="stack">
+                <div class="match" style="top:0px;">
+                  <div class="label-badge">A</div>
+                  <div class="slot top clickable" data-match="A" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="A" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match" style="top:126px;">
+                  <div class="label-badge">B</div>
+                  <div class="slot top clickable" data-match="B" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="B" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match" style="top:252px;">
+                  <div class="label-badge">C</div>
+                  <div class="slot top clickable" data-match="C" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="C" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match" style="top:378px;">
+                  <div class="label-badge">D</div>
+                  <div class="slot top clickable" data-match="D" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="D" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column semis-column" style="grid-column:2;grid-row:2;">
+              <div class="stack">
+                <div class="match wide" style="top:63px;">
+                  <div class="label-badge">E</div>
+                  <div class="slot top clickable" data-match="E" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="E" data-side="bottom"></div>
+                  <div class="connector tall"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match wide" style="top:315px;">
+                  <div class="label-badge">F</div>
+                  <div class="slot top clickable" data-match="F" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="F" data-side="bottom"></div>
+                  <div class="connector tall"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column final-column" style="grid-column:3;grid-row:2;">
+              <div class="stack">
+                <div class="match wide" style="top:189px;">
+                  <div class="label-badge">G</div>
+                  <div class="slot top clickable" data-match="G" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="G" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column grand-column" style="grid-column:4;grid-row:2;">
+              <div class="stack">
+                <div class="match narrow" style="top:189px;">
+                  <div class="label-badge">H</div>
+                  <div class="slot top clickable" data-match="H" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="H" data-side="bottom"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="round-title title small" style="grid-column:1;grid-row:3;">Losers Round 1</div>
+            <div class="round-title title small" style="grid-column:2;grid-row:3;">Losers Quarter Final</div>
+            <div class="round-title title small" style="grid-column:3;grid-row:3;">Losers Semi Final</div>
+            <div class="round-title title small" style="grid-column:4;grid-row:3;">Losers Final</div>
+
+            <div class="column winner-column" style="grid-column:1;grid-row:4;">
+              <div class="stack">
+                <div class="match" style="top:0px;">
+                  <div class="label-badge">J</div>
+                  <div class="slot top clickable" data-match="J" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="J" data-side="bottom"></div>
+                  <div class="connector short"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match" style="top:108px;">
+                  <div class="label-badge">K</div>
+                  <div class="slot top clickable" data-match="K" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="K" data-side="bottom"></div>
+                  <div class="connector short"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column semis-column" style="grid-column:2;grid-row:4;">
+              <div class="stack">
+                <div class="match wide" style="top:8px;">
+                  <div class="label-badge">L</div>
+                  <div class="slot top clickable" data-match="L" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="L" data-side="bottom"></div>
+                  <div class="connector short"></div>
+                  <div class="connector midline"></div>
+                </div>
+                <div class="match wide" style="top:116px;">
+                  <div class="label-badge">M</div>
+                  <div class="slot top clickable" data-match="M" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="M" data-side="bottom"></div>
+                  <div class="connector short"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column final-column" style="grid-column:3;grid-row:4;">
+              <div class="stack">
+                <div class="match wide" style="top:62px;">
+                  <div class="label-badge">N</div>
+                  <div class="slot top clickable" data-match="N" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="N" data-side="bottom"></div>
+                  <div class="connector short"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column grand-column" style="grid-column:4;grid-row:4;">
+              <div class="stack">
+                <div class="match narrow" style="top:62px;">
+                  <div class="label-badge">O</div>
+                  <div class="slot top clickable" data-match="O" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="O" data-side="bottom"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </section>
+
+      <section class="face back">
+        <button class="flip-corner" id="flipToView" aria-label="Flip to bracket view"></button>
+        <div class="panel-shell">
+          <div class="panel">
+            <div>
+              <h1>Bracket Setup</h1>
+              <p>Enter the 8 team names and choose a hex color for each team. Flip back to the front to run the bracket live.</p>
+            </div>
+            <div class="team-list" id="teamList"></div>
+            <div class="toolbar">
+              <button class="action" id="resetBracketBtn">Reset Bracket</button>
+              <button class="action secondary" id="undoBtn">Undo</button>
+              <button class="action light" id="clearAllBtn">Clear All</button>
+            </div>
+          </div>
+          <div class="preview">
+            <iframe id="previewFrame" title="Bracket preview"></iframe>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const defaultState = () => ({
+      teams: [
+        { id: 't1', name: 'Seed 1', color: '#f59e0b' },
+        { id: 't8', name: 'Seed 8', color: '#94a3b8' },
+        { id: 't4', name: 'Seed 4', color: '#06b6d4' },
+        { id: 't5', name: 'Seed 5', color: '#ef4444' },
+        { id: 't2', name: 'Seed 2', color: '#8b5cf6' },
+        { id: 't7', name: 'Seed 7', color: '#22c55e' },
+        { id: 't3', name: 'Seed 3', color: '#ec4899' },
+        { id: 't6', name: 'Seed 6', color: '#3b82f6' }
+      ],
+      winners: {},
+      history: []
+    });
+
+    const STORAGE_KEY = 'double-elim-bracket-state-v1';
+    let state = loadState();
+
+    const card = document.getElementById('card');
+    const flipToEdit = document.getElementById('flipToEdit');
+    const flipToView = document.getElementById('flipToView');
+    const teamList = document.getElementById('teamList');
+    const previewFrame = document.getElementById('previewFrame');
+
+    const slotElements = [...document.querySelectorAll('.slot[data-match]')];
+
+    const matchOrder = ['A','B','C','D','E','F','J','K','L','M','G','N','O','H'];
+
+    const sourceMatches = {
+      A: { top: ['seed', 0], bottom: ['seed', 1] },
+      B: { top: ['seed', 2], bottom: ['seed', 3] },
+      C: { top: ['seed', 4], bottom: ['seed', 5] },
+      D: { top: ['seed', 6], bottom: ['seed', 7] },
+      E: { top: ['winner', 'A'], bottom: ['winner', 'B'] },
+      F: { top: ['winner', 'C'], bottom: ['winner', 'D'] },
+      J: { top: ['loser', 'A'], bottom: ['loser', 'B'] },
+      K: { top: ['loser', 'C'], bottom: ['loser', 'D'] },
+      L: { top: ['winner', 'J'], bottom: ['loser', 'E'] },
+      M: { top: ['winner', 'K'], bottom: ['loser', 'F'] },
+      G: { top: ['winner', 'E'], bottom: ['winner', 'F'] },
+      N: { top: ['winner', 'L'], bottom: ['winner', 'M'] },
+      O: { top: ['winner', 'N'], bottom: ['loser', 'G'] },
+      H: { top: ['winner', 'G'], bottom: ['winner', 'O'] }
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        return {
+          teams: Array.isArray(parsed.teams) && parsed.teams.length === 8 ? parsed.teams : defaultState().teams,
+          winners: parsed.winners || {},
+          history: Array.isArray(parsed.history) ? parsed.history : []
+        };
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function cloneState(input) {
+      return JSON.parse(JSON.stringify(input));
+    }
+
+    function normalizeState() {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const computed = computeBracket(state.teams, state.winners);
+        for (const matchId of Object.keys(state.winners)) {
+          const choice = state.winners[matchId];
+          const currentMatch = computed.matches[matchId];
+          const allowedIds = [currentMatch?.top?.id, currentMatch?.bottom?.id].filter(Boolean);
+          if (!allowedIds.includes(choice)) {
+            delete state.winners[matchId];
+            changed = true;
+          }
+        }
+      }
+    }
+
+    function computeBracket(teams, winners) {
+      const matches = {};
+      const resolved = {};
+
+      function seed(index) {
+        return teams[index] || null;
+      }
+
+      function resolveRef(ref) {
+        const [type, value] = ref;
+        if (type === 'seed') return seed(value);
+        const source = resolved[value];
+        if (!source) return null;
+        if (type === 'winner') return source.winner || null;
+        if (type === 'loser') return source.loser || null;
+        return null;
+      }
+
+      for (const matchId of matchOrder) {
+        const refs = sourceMatches[matchId];
+        const top = resolveRef(refs.top);
+        const bottom = resolveRef(refs.bottom);
+        const selectedId = winners[matchId] || null;
+        const winner = top && selectedId === top.id ? top : bottom && selectedId === bottom.id ? bottom : null;
+        const loser = winner && top && bottom ? (winner.id === top.id ? bottom : top) : null;
+        matches[matchId] = { id: matchId, top, bottom, selectedId };
+        resolved[matchId] = { winner, loser };
+      }
+
+      return { matches, resolved };
+    }
+
+    function pushHistory() {
+      state.history.push({
+        winners: cloneState(state.winners),
+        teams: cloneState(state.teams)
+      });
+      if (state.history.length > 100) state.history.shift();
+    }
+
+    function teamMarkup(team, selectedId) {
+      if (!team) return '<div class="name">TBD</div>';
+      return `<div class="name">${escapeHtml(team.name || 'Unnamed Team')}</div>`;
+    }
+
+    function applySlot(el, team, selectedId) {
+      el.innerHTML = teamMarkup(team, selectedId);
+      el.classList.toggle('empty', !team || !team.name);
+      const accent = team?.color || '#cbd5e1';
+      el.style.setProperty('--accent', accent);
+      if (team) {
+        el.style.background = `linear-gradient(90deg, ${hexToRgba(accent, 0.2)} 0%, rgba(255,255,255,0.98) 42%)`;
+      } else {
+        el.style.background = 'rgba(255,255,255,0.96)';
+      }
+    }
+
+    function renderBracket() {
+      normalizeState();
+      const { matches } = computeBracket(state.teams, state.winners);
+      for (const el of slotElements) {
+        const matchId = el.dataset.match;
+        const side = el.dataset.side;
+        const match = matches[matchId];
+        const team = match ? match[side] : null;
+        applySlot(el, team, match?.selectedId || null);
+        const isSelected = !!team && match?.selectedId === team.id;
+        el.classList.toggle('selected', isSelected);
+        el.classList.toggle('clickable', !!team);
+      }
+      updatePreview(matches);
+      saveState();
+    }
+
+    function updatePreview(matches) {
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      const payload = {
+        matches,
+        winners: state.winners
+      };
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><style>
+        html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#00b140;font-family:Inter,Arial,sans-serif}
+        .note{position:absolute;left:16px;bottom:16px;color:rgba(255,255,255,.9);font-size:14px;font-weight:700}
+      </style></head><body><div class="note">Live preview mirrors the front of the bracket.</div></body></html>`);
+      doc.close();
+    }
+
+    function renderEditor() {
+      const active = document.activeElement;
+      const activeIndex = active?.dataset?.index ?? null;
+      const activeType = active?.dataset?.type ?? null;
+      const selectionStart = active && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+      const selectionEnd = active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
+
+      teamList.innerHTML = '';
+      state.teams.forEach((team, index) => {
+        const card = document.createElement('div');
+        card.className = 'team-card';
+        card.innerHTML = `
+          <div class="color-stack">
+            <div class="color-preview" style="background:${escapeHtml(team.color)}"></div>
+            <div class="color-hex">${escapeHtml(team.color.toUpperCase())}</div>
+          </div>
+          <div class="team-fields">
+            <label>Team ${index + 1}</label>
+            <input type="text" value="${escapeHtmlAttr(team.name)}" data-type="name" data-index="${index}" maxlength="28" />
+            <input type="color" value="${escapeHtmlAttr(normalizeHex(team.color))}" data-type="color" data-index="${index}" />
+          </div>
+        `;
+        teamList.appendChild(card);
+      });
+
+      teamList.querySelectorAll('input').forEach((input) => {
+        if (input.dataset.type === 'name') {
+          input.addEventListener('focus', () => {
+            input.dataset.lastValue = input.value;
+          });
+
+          input.addEventListener('input', (e) => {
+            const idx = Number(e.target.dataset.index);
+            state.teams[idx].name = e.target.value;
+            const cardEl = e.target.closest('.team-card');
+            const preview = cardEl?.querySelector('.color-hex');
+            if (preview) preview.textContent = state.teams[idx].color.toUpperCase();
+            renderBracket();
+          });
+
+          input.addEventListener('change', (e) => {
+            const idx = Number(e.target.dataset.index);
+            const previousValue = e.target.dataset.lastValue ?? '';
+            const currentValue = state.teams[idx].name;
+            if (previousValue !== currentValue) {
+              state.history.push({
+                winners: cloneState(state.winners),
+                teams: cloneState(state.teams.map((team, teamIndex) => teamIndex === idx ? { ...team, name: previousValue } : team))
+              });
+              if (state.history.length > 100) state.history.shift();
+            }
+            e.target.dataset.lastValue = currentValue;
+            saveState();
+          });
+        }
+
+        if (input.dataset.type === 'color') {
+          input.addEventListener('focus', () => {
+            input.dataset.lastValue = input.value;
+          });
+
+          input.addEventListener('input', (e) => {
+            const idx = Number(e.target.dataset.index);
+            state.teams[idx].color = e.target.value;
+            const cardEl = e.target.closest('.team-card');
+            const swatch = cardEl?.querySelector('.color-preview');
+            const hex = cardEl?.querySelector('.color-hex');
+            if (swatch) swatch.style.background = e.target.value;
+            if (hex) hex.textContent = e.target.value.toUpperCase();
+            renderBracket();
+          });
+
+          input.addEventListener('change', (e) => {
+            const idx = Number(e.target.dataset.index);
+            const previousValue = e.target.dataset.lastValue ?? normalizeHex(state.teams[idx].color);
+            const currentValue = state.teams[idx].color;
+            if (previousValue !== currentValue) {
+              state.history.push({
+                winners: cloneState(state.winners),
+                teams: cloneState(state.teams.map((team, teamIndex) => teamIndex === idx ? { ...team, color: previousValue } : team))
+              });
+              if (state.history.length > 100) state.history.shift();
+            }
+            e.target.dataset.lastValue = currentValue;
+            saveState();
+          });
+        }
+      });
+
+      if (activeIndex !== null && activeType !== null) {
+        const replacement = teamList.querySelector(`input[data-index="${activeIndex}"][data-type="${activeType}"]`);
+        if (replacement) {
+          replacement.focus();
+          if (activeType === 'name' && selectionStart !== null && selectionEnd !== null) {
+            replacement.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }
+      }
+    }
+
+    function handleSlotClick(event) {
+      const el = event.currentTarget;
+      const matchId = el.dataset.match;
+      const side = el.dataset.side;
+      const { matches } = computeBracket(state.teams, state.winners);
+      const match = matches[matchId];
+      const team = match?.[side];
+      if (!team) return;
+      pushHistory();
+      if (state.winners[matchId] === team.id) {
+        delete state.winners[matchId];
+      } else {
+        state.winners[matchId] = team.id;
+      }
+      renderBracket();
+    }
+
+    function undo() {
+      const previous = state.history.pop();
+      if (!previous) return;
+      state.teams = previous.teams;
+      state.winners = previous.winners;
+      renderEditor();
+      renderBracket();
+    }
+
+    function resetBracket() {
+      pushHistory();
+      state.winners = {};
+      renderBracket();
+    }
+
+    function clearAll() {
+      pushHistory();
+      state = defaultState();
+      renderEditor();
+      renderBracket();
+    }
+
+    function normalizeHex(value) {
+      return /^#[0-9A-Fa-f]{6}$/.test(value) ? value : '#94a3b8';
+    }
+
+    function hexToRgba(hex, alpha) {
+      const safe = normalizeHex(hex).replace('#', '');
+      const bigint = parseInt(safe, 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeHtmlAttr(str) {
+      return escapeHtml(str);
+    }
+
+    flipToEdit.addEventListener('click', () => card.classList.add('flipped'));
+    flipToView.addEventListener('click', () => card.classList.remove('flipped'));
+
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('resetBracketBtn').addEventListener('click', resetBracket);
+    document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+
+    slotElements.forEach((el) => el.addEventListener('click', handleSlotClick));
+
+    renderEditor();
+    renderBracket();
+  </script>
+</body>
+</html>
