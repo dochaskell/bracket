@@ -604,6 +604,18 @@
                   <div class="label-badge">P</div>
                   <div class="slot top clickable" data-match="P" data-side="top"></div>
                   <div class="slot bottom clickable" data-match="P" data-side="bottom"></div>
+                  <div class="connector medium"></div>
+                  <div class="connector midline"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="column grand-column" style="grid-column:5;grid-row:4;">
+              <div class="stack">
+                <div class="match narrow" style="top:142px;">
+                  <div class="label-badge">Q</div>
+                  <div class="slot top clickable" data-match="Q" data-side="top"></div>
+                  <div class="slot bottom clickable" data-match="Q" data-side="bottom"></div>
                 </div>
               </div>
             </div>
@@ -661,25 +673,26 @@
     const previewFrame = document.getElementById('previewFrame');
     const slotElements = [...document.querySelectorAll('.slot[data-match]')];
 
-    const matchOrder = ['A','B','C','D','E','J','K','L','F','G','N','O','H','P','I'];
+    const matchOrder = ['A','B','C','E','D','J','K','L','F','G','N','O','H','P','Q','I'];
 
     const sourceMatches = {
-      A: { top: ['seed', 1], bottom: ['seed', 2] },
+      A: { top: ['seed', 2], bottom: ['seed', 1] },
       B: { top: ['seed', 0], bottom: ['winner', 'A'] },
       C: { top: ['seed', 3], bottom: ['seed', 4] },
-      D: { top: ['seed', 5], bottom: ['seed', 6] },
-      E: { top: ['seed', 7], bottom: ['seed', 8] },
-      J: { top: ['loser', 'B'], bottom: ['loser', 'E'] },
+      E: { top: ['seed', 5], bottom: ['seed', 6] },
+      D: { top: ['seed', 7], bottom: ['seed', 8] },
+      J: { top: ['loser', 'E'], bottom: ['loser', 'A'] },
       K: { top: ['loser', 'D'], bottom: ['winner', 'J'] },
       
-      L: { top: ['loser', 'F'], bottom: ['loser', 'C'] },
+      L: { top: ['loser', 'B'], bottom: ['loser', 'C'] },
       F: { top: ['winner', 'B'], bottom: ['winner', 'C'] },
       G: { top: ['winner', 'D'], bottom: ['winner', 'E'] },
-      N: { top: ['loser', 'G'], bottom: ['winner', 'K'] },
-      O: { top: ['winner', 'L'], bottom: ['winner', 'N'] },
+      N: { top: ['loser', 'F'], bottom: ['winner', 'K'] },
+      O: { top: ['loser', 'G'], bottom: ['winner', 'L'] },
       H: { top: ['winner', 'F'], bottom: ['winner', 'G'] },
-      P: { top: ['loser', 'H'], bottom: ['winner', 'O'] },
-      I: { top: ['winner', 'H'], bottom: ['winner', 'P'] }
+      P: { top: ['winner', 'N'], bottom: ['winner', 'O'] },
+      Q: { top: ['winner', 'P'], bottom: ['loser', 'H'] },
+      I: { top: ['winner', 'H'], bottom: ['winner', 'Q'] }
     };
 
     function loadState() {
