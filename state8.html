@@ -862,16 +862,24 @@
         const side = el.dataset.placementSide;
         const result = resolved[matchId];
         const labels = placementMap[matchId];
-        if (!labels || !result) {
+        const match = matches[matchId];
+
+        if (!labels || !result || !match?.selectedId) {
           renderPlacementFlag(el, null, '', false);
           return;
         }
 
-        const team = side === 'top' ? result.winner : result.loser;
-        const rankLabel = side === 'top' ? labels.winner : labels.loser;
-        const match = matches[matchId];
-        const shouldShow = !!match?.selectedId;
-        renderPlacementFlag(el, team, rankLabel, shouldShow);
+        const winningSide = match.top?.id === match.selectedId ? 'top' : match.bottom?.id === match.selectedId ? 'bottom' : null;
+        const losingSide = winningSide === 'top' ? 'bottom' : winningSide === 'bottom' ? 'top' : null;
+
+        if (!winningSide || !losingSide) {
+          renderPlacementFlag(el, null, '', false);
+          return;
+        }
+
+        const rankLabel = side === winningSide ? labels.winner : labels.loser;
+        const team = side === winningSide ? result.winner : result.loser;
+        renderPlacementFlag(el, team, rankLabel, true);
       });
     }
 
