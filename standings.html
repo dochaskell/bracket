@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Standings Editor</title>
+  <style>
+    :root {
+      --bg: #0b0b0f;
+      --panel: #12131a;
+      --panel-2: #1a1c25;
+      --line: #2d3140;
+      --text: #f5f7fb;
+      --muted: #adb5c7;
+      --accent: #ff8a00;
+      --danger: #ff4d4f;
+      --shadow: 0 18px 40px rgba(0,0,0,.35);
+      --font: Impact, Haettenschweiler, 'Arial Black', 'Segoe UI', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: #111;
+      font-family: var(--font);
+      color: var(--text);
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    #app {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #04F404;
+    }
+
+    .flip-hotspot {
+      position: absolute;
+      z-index: 30;
+      width: 72px;
+      height: 72px;
+      top: 22px;
+      right: 22px;
+      border: 3px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      background: rgba(255,255,255,.01);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      backdrop-filter: blur(2px);
+      box-shadow: none;
+      user-select: none;
+      opacity: .03;
+      transition: opacity .18s ease, background .18s ease, border-color .18s ease;
+    }
+
+    .flip-hotspot:hover {
+      opacity: .9;
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.35);
+      box-shadow: var(--shadow);
+    }
+
+    .flip-hotspot::before {
+      content: 'EDIT';
+      font-size: 20px;
+      letter-spacing: 1px;
+      opacity: .15;
+      transition: opacity .18s ease;
+    }
+
+    .flip-hotspot:hover::before {
+      opacity: 1;
+    }
+
+    .flip-stage {
+      position: absolute;
+      inset: 0;
+      perspective: 1800px;
+    }
+
+    .flip-card {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform .7s ease;
+    }
+
+    .flip-card.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+    }
+
+    .front {
+      padding: 60px 100px;
+    }
+
+    .back {
+      transform: rotateY(180deg);
+      background: linear-gradient(180deg, #0d0f14, #151925);
+      padding: 24px 30px 28px;
+    }
+
+    .board-wrap {
+      position: absolute;
+      inset: 60px 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .standing-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 80px 90px minmax(0, 1fr) 260px;
+      align-items: center;
+      min-height: 46px;
+      border: 4px solid #111;
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+
+    .rank-box {
+      font-weight: 900;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      background: rgba(0,0,0,.16);
+      color: rgba(255,255,255,.92);
+      font-size: 38px;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+
+    .name-box, .value-box {
+      font-weight: 900;
+      padding: 0 22px;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      text-transform: uppercase;
+      line-height: 1;
+      text-shadow: 0 2px 0 rgba(0,0,0,.28);
+    }
+
+    .name-box {
+      font-size: 64px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .value-box {
+      justify-content: flex-end;
+      font-size: 56px;
+      cursor: text;
+      user-select: none;
+    }
+
+    .value-box[contenteditable="true"]:focus {
+      outline: 4px solid rgba(255,255,255,.7);
+      background: rgba(0,0,0,.12);
+    }
+
+    .back-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .back-title {
+      font-size: 44px;
+      letter-spacing: 1px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button, .tiny-btn, input, textarea {
+      font-family: var(--font);
+    }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    button.secondary {
+      background: #2a3142;
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    .count-label {
+      font-size: 24px;
+      color: var(--muted);
+      min-width: 88px;
+      text-align: center;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 18px;
+      height: calc(100% - 86px);
+    }
+
+    .rows-panel, .paste-panel {
+      background: rgba(255,255,255,.03);
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      min-height: 0;
+    }
+
+    .rows-panel {
+      overflow: auto;
+    }
+
+    .edit-row {
+      display: grid;
+      grid-template-columns: 56px 1.2fr 110px 140px 1fr 1fr 1fr 88px;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .edit-row .num {
+      font-size: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .field, .color-wrap, .radio-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label, .color-wrap label, .radio-wrap label, .paste-panel label {
+      font-size: 15px;
+      color: var(--muted);
+      letter-spacing: .5px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 2px solid #2d3140;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 18px;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 44px;
+      border: 2px solid #2d3140;
+      border-radius: 10px;
+      background: var(--panel-2);
+      padding: 4px;
+      cursor: pointer;
+    }
+
+    .radio-pair {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: var(--panel-2);
+      border: 2px solid #2d3140;
+      border-radius: 10px;
+      padding: 10px 12px;
+      min-height: 44px;
+    }
+
+    .radio-pair label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .tiny-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      background: var(--danger);
+      color: white;
+      height: 44px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .paste-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+      text-transform: none;
+    }
+
+    textarea {
+      resize: none;
+      flex: 1;
+      min-height: 280px;
+      font-family: Arial, sans-serif;
+      text-transform: none;
+      font-size: 16px;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 17px;
+      letter-spacing: .5px;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      font-size: 56px;
+      color: rgba(255,255,255,.7);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="flip-hotspot" id="flipToggle" title="Flip editor"></div>
+
+    <div class="flip-stage">
+      <div class="flip-card" id="flipCard">
+        <section class="face front">
+          <div class="board-wrap" id="board"></div>
+          <div class="empty-state" id="emptyState">NO ENTRIES</div>
+        </section>
+
+        <section class="face back">
+          <div class="back-header">
+            <div class="back-title">Standings Editor</div>
+            <div class="controls">
+              <button type="button" id="addRowBtn">Add Row</button>
+              <button type="button" class="secondary" id="removeRowBtn">Remove Row</button>
+              <div class="count-label" id="countLabel">9 Teams</div>
+              <button type="button" class="secondary" id="copyBtn">Copy/Paste Export</button>
+            </div>
+          </div>
+
+          <div class="editor-grid">
+            <div class="rows-panel" id="rowsPanel"></div>
+
+            <div class="paste-panel">
+              <label for="bulkBox">Copy / paste block</label>
+              <div class="hint">One row per line. Use pipe separators:<br>name | type | value | barColor | textColor | valueColor | imageURL<br><br>Type can be <b>points</b> or <b>record</b>.<br>Examples:<br>Boise State | record | 11-3 | #0d47c1 | #f26522 | #ffffff |
+              <br>Player One | points | 27 | #5a189a | #ffffff | #ffef00 | https://example.com/image.png</div>
+              <textarea id="bulkBox" placeholder="Paste rows here..."></textarea>
+              <button type="button" id="applyBulkBtn">Apply Pasted Rows</button>
+              <div class="footer-note">Click the top-right corner again to flip back to the board.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MIN_ROWS = 6;
+    const MAX_ROWS = 16;
+
+    const STORAGE_KEY = 'standingsEditorStateV2';
+
+    const defaultItems = [
+      { name: 'Boise State', type: 'record', value: '11-3', barColor: '#0d47c1', textColor: '#f26522', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Utah', type: 'record', value: '10-3', barColor: '#cc0000', textColor: '#ffffff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Ohio State', type: 'record', value: '9-3', barColor: '#d60000', textColor: '#ffffff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Syracuse', type: 'record', value: '8-4', barColor: '#ff6f00', textColor: '#ffffff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Kansas', type: 'record', value: '7-5', barColor: '#ff0022', textColor: '#0063ff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Nebraska', type: 'record', value: '6-6', barColor: '#e41c38', textColor: '#ffffff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Michigan State', type: 'record', value: '5-7', barColor: '#18453b', textColor: '#ffffff', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Minnesota', type: 'record', value: '4-9', barColor: '#7a0019', textColor: '#ffcc33', valueColor: '#ffffff', imageUrl: '' },
+      { name: 'Baylor', type: 'record', value: '2-11', barColor: '#0d5c46', textColor: '#ffcc33', valueColor: '#ffffff', imageUrl: '' }
+    ];
+
+    const state = {
+      items: loadSavedItems()
+    };
+
+    const flipCard = document.getElementById('flipCard');
+    const flipToggle = document.getElementById('flipToggle');
+    const board = document.getElementById('board');
+    const rowsPanel = document.getElementById('rowsPanel');
+    const countLabel = document.getElementById('countLabel');
+    const emptyState = document.getElementById('emptyState');
+    const bulkBox = document.getElementById('bulkBox');
+
+    flipToggle.addEventListener('click', () => {
+      flipCard.classList.toggle('flipped');
+    });
+
+    function clampRows() {
+      if (state.items.length < MIN_ROWS) {
+        while (state.items.length < MIN_ROWS) state.items.push(makeBlankItem());
+      }
+      if (state.items.length > MAX_ROWS) {
+        state.items.length = MAX_ROWS;
+      }
+    }
+
+    function makeBlankItem() {
+      return {
+        name: 'New Team',
+        type: 'points',
+        value: '0',
+        barColor: '#243b55',
+        textColor: '#ffffff',
+        valueColor: '#ffffff',
+        imageUrl: ''
+      };
+    }
+
+    function scoreForSort(item) {
+      if (item.type === 'points') {
+        const points = parseFloat(String(item.value).replace(/[^0-9.-]/g, ''));
+        return {
+          primary: Number.isFinite(points) ? points : -Infinity,
+          secondary: Number.isFinite(points) ? points : -Infinity,
+          tertiary: 0
+        };
+      }
+
+      const match = String(item.value).trim().match(/^(\d+)\s*-\s*(\d+)$/);
+      if (!match) {
+        return { primary: -Infinity, secondary: -Infinity, tertiary: Infinity };
+      }
+      const wins = Number(match[1]);
+      const losses = Number(match[2]);
+      const total = wins + losses;
+      const pct = total > 0 ? wins / total : 0;
+      return { primary: pct, secondary: wins, tertiary: -losses };
+    }
+
+    function sortItems() {
+      state.items.sort((a, b) => {
+        const sa = scoreForSort(a);
+        const sb = scoreForSort(b);
+        if (sb.primary !== sa.primary) return sb.primary - sa.primary;
+        if (sb.secondary !== sa.secondary) return sb.secondary - sa.secondary;
+        if (sb.tertiary !== sa.tertiary) return sb.tertiary - sa.tertiary;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    function fitBoardRows() {
+      const count = Math.max(MIN_ROWS, Math.min(MAX_ROWS, state.items.length));
+      const wrapHeight = 1080 - 120;
+      const gap = 16;
+      const rowHeight = Math.floor((wrapHeight - (count - 1) * gap) / count);
+      const nameSize = Math.max(34, Math.min(64, Math.floor(rowHeight * 0.62)));
+      const valueSize = Math.max(28, Math.min(56, Math.floor(rowHeight * 0.54)));
+      const rankSize = Math.max(20, Math.min(38, Math.floor(rowHeight * 0.40)));
+      document.documentElement.style.setProperty('--dynamic-row-height', rowHeight + 'px');
+      document.documentElement.style.setProperty('--dynamic-name-size', nameSize + 'px');
+      document.documentElement.style.setProperty('--dynamic-value-size', valueSize + 'px');
+      document.documentElement.style.setProperty('--dynamic-rank-size', rankSize + 'px');
+    }
+
+    function renderBoard() {
+      clampRows();
+      sortItems();
+      fitBoardRows();
+      board.innerHTML = '';
+      emptyState.style.display = state.items.length ? 'none' : 'grid';
+
+      state.items.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'standing-row';
+        row.style.background = item.barColor || '#444';
+        row.style.minHeight = 'var(--dynamic-row-height)';
+        row.innerHTML = `
+          <div class="rank-box" style="font-size:var(--dynamic-rank-size)">${index + 1}</div>
+          <div class="logo-box" style="display:flex;align-items:center;justify-content:center;">
+            ${item.imageUrl ? `<img src="${item.imageUrl}" style="max-height:70%;max-width:70%;object-fit:contain;">` : ``}
+          </div>
+          <div class="name-box" style="color:${item.textColor || '#fff'};font-size:var(--dynamic-name-size)">${escapeHtml(item.name || '')}</div>
+          <div class="value-box" style="color:${item.valueColor || '#fff'};font-size:var(--dynamic-value-size)" contenteditable="true" spellcheck="false" data-index="${index}">${escapeHtml(item.value || '')}</div>
+        `;
+        board.appendChild(row);
+      });
+
+      board.querySelectorAll('.value-box').forEach(el => {
+        el.addEventListener('blur', handleFrontValueEdit);
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        });
+      });
+    }
+
+    function handleFrontValueEdit(e) {
+      const sortedItems = [...state.items];
+      const idx = Number(e.currentTarget.dataset.index);
+      if (!Number.isInteger(idx) || !sortedItems[idx]) return;
+      sortedItems[idx].value = e.currentTarget.textContent.trim();
+      state.items = sortedItems;
+      renderAll();
+    }
+
+    function renderEditor() {
+      rowsPanel.innerHTML = '';
+      countLabel.textContent = `${state.items.length} ${state.items.length === 1 ? 'Team' : 'Teams'}`;
+
+      state.items.forEach((item, index) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'edit-row';
+        wrap.innerHTML = `
+          <div class="num">${index + 1}</div>
+
+          <div class="field">
+            <label>Name</label>
+            <input type="text" value="${escapeAttribute(item.name)}" data-field="name" data-index="${index}">
+          </div>
+
+          <div class="radio-wrap">
+            <label>Type</label>
+            <div class="radio-pair">
+              <label><input type="radio" name="type-${index}" value="points" ${item.type === 'points' ? 'checked' : ''} data-field="type" data-index="${index}">Pts</label>
+              <label><input type="radio" name="type-${index}" value="record" ${item.type === 'record' ? 'checked' : ''} data-field="type" data-index="${index}">Rec</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Value</label>
+            <input type="text" value="${escapeAttribute(item.value)}" data-field="value" data-index="${index}">
+          </div>
+
+          <div class="color-wrap">
+            <label>Bar Color</label>
+            <input type="color" value="${normalizeColor(item.barColor)}" data-field="barColor" data-index="${index}">
+          </div>
+
+          <div class="color-wrap">
+            <label>Name Color</label>
+            <input type="color" value="${normalizeColor(item.textColor)}" data-field="textColor" data-index="${index}">
+          </div>
+
+          <div class="color-wrap">
+            <label>Value Color</label>
+            <input type="color" value="${normalizeColor(item.valueColor)}" data-field="valueColor" data-index="${index}">
+          </div>
+
+          <button type="button" class="tiny-btn" data-remove="${index}">Delete</button>
+
+          <div class="field" style="grid-column: 2 / span 6;">
+            <label>Image URL (stored now, ready for future use)</label>
+            <input type="text" value="${escapeAttribute(item.imageUrl || '')}" data-field="imageUrl" data-index="${index}" placeholder="https://example.com/logo.png">
+          </div>
+        `;
+        rowsPanel.appendChild(wrap);
+      });
+
+      rowsPanel.querySelectorAll('input[data-field]').forEach(input => {
+        const eventName = input.type === 'radio' || input.type === 'color' ? 'input' : 'input';
+        input.addEventListener(eventName, handleEditorChange);
+      });
+
+      rowsPanel.querySelectorAll('button[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const index = Number(btn.dataset.remove);
+          if (state.items.length <= MIN_ROWS) return;
+          state.items.splice(index, 1);
+          renderAll();
+        });
+      });
+    }
+
+    function handleEditorChange(e) {
+      const index = Number(e.target.dataset.index);
+      const field = e.target.dataset.field;
+      if (!state.items[index] || !field) return;
+      state.items[index][field] = e.target.value;
+      renderAll();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+      } catch (err) {
+        console.warn('Could not save standings state.', err);
+      }
+    }
+
+    function loadSavedItems() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [...defaultItems];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || !parsed.length) return [...defaultItems];
+        return parsed.map(item => ({
+          name: typeof item.name === 'string' ? item.name : 'New Team',
+          type: item.type === 'record' ? 'record' : 'points',
+          value: typeof item.value === 'string' ? item.value : '0',
+          barColor: validHex(item.barColor) ? item.barColor : '#243b55',
+          textColor: validHex(item.textColor) ? item.textColor : '#ffffff',
+          valueColor: validHex(item.valueColor) ? item.valueColor : '#ffffff',
+          imageUrl: typeof item.imageUrl === 'string' ? item.imageUrl : ''
+        }));
+      } catch (err) {
+        console.warn('Could not load saved standings state.', err);
+        return [...defaultItems];
+      }
+    }
+
+    function normalizeColor(value) {
+      return /^#[0-9a-fA-F]{6}$/.test(value || '') ? value : '#ffffff';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttribute(str) {
+      return escapeHtml(str).replace(/`/g, '&#96;');
+    }
+
+    function exportRowsToText() {
+      const lines = state.items.map(item => [
+        item.name || '',
+        item.type || 'points',
+        item.value || '',
+        item.barColor || '',
+        item.textColor || '',
+        item.valueColor || '',
+        item.imageUrl || ''
+      ].join(' | '));
+      bulkBox.value = lines.join('\n');
+      bulkBox.focus();
+      bulkBox.select();
+      navigator.clipboard?.writeText(bulkBox.value).catch(() => {});
+    }
+
+    function applyBulkRows() {
+      const raw = bulkBox.value.trim();
+      if (!raw) return;
+      const rows = raw.split(/\n+/).map(line => line.trim()).filter(Boolean);
+      const parsed = rows.map(line => {
+        const parts = line.split('|').map(s => s.trim());
+        return {
+          name: parts[0] || 'New Team',
+          type: (parts[1] || 'points').toLowerCase() === 'record' ? 'record' : 'points',
+          value: parts[2] || '0',
+          barColor: validHex(parts[3]) ? parts[3] : '#243b55',
+          textColor: validHex(parts[4]) ? parts[4] : '#ffffff',
+          valueColor: validHex(parts[5]) ? parts[5] : '#ffffff',
+          imageUrl: parts[6] || ''
+        };
+      }).slice(0, MAX_ROWS);
+
+      state.items = parsed;
+      clampRows();
+      renderAll();
+    }
+
+    function validHex(v) {
+      return /^#[0-9a-fA-F]{6}$/.test(v || '');
+    }
+
+    function renderAll() {
+      clampRows();
+      saveState();
+      renderBoard();
+      renderEditor();
+    }
+
+    document.getElementById('addRowBtn').addEventListener('click', () => {
+      if (state.items.length >= MAX_ROWS) return;
+      state.items.push(makeBlankItem());
+      renderAll();
+    });
+
+    document.getElementById('removeRowBtn').addEventListener('click', () => {
+      if (state.items.length <= MIN_ROWS) return;
+      state.items.pop();
+      renderAll();
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', exportRowsToText);
+    document.getElementById('applyBulkBtn').addEventListener('click', applyBulkRows);
+
+    renderAll();
+  </script>
+</body>
+</html>
