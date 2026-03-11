@@ -49,20 +49,30 @@
       height: 72px;
       top: 22px;
       right: 22px;
-      border: 3px solid rgba(255,255,255,.08);
+      border: 3px solid rgba(255,255,255,.35);
       border-radius: 12px;
-      background: rgba(255,255,255,.01);
+      background: rgba(255,255,255,.08);
       cursor: pointer;
       display: grid;
       place-items: center;
       backdrop-filter: blur(2px);
-      box-shadow: none;
+      box-shadow: var(--shadow);
       user-select: none;
-      opacity: .03;
-      transition: opacity .18s ease, background .18s ease, border-color .18s ease;
+      opacity: .04;
+      pointer-events: auto;
+      transition: opacity .18s ease;
     }
 
     .flip-hotspot:hover {
+      opacity: 1;
+    }
+
+    #app.editing .flip-hotspot {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #app.editing .flip-hotspot:hover {
       opacity: .9;
       background: rgba(255,255,255,.08);
       border-color: rgba(255,255,255,.35);
@@ -116,7 +126,10 @@
 
     .board-wrap {
       position: absolute;
-      inset: 60px 100px;
+      left: 100px;
+      right: 100px;
+      top: 50%;
+      transform: translateY(-50%);
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -141,7 +154,7 @@
       place-items: center;
       background: rgba(0,0,0,.16);
       color: rgba(255,255,255,.92);
-      font-size: 38px;
+      font-size: 48px;
       letter-spacing: 1px;
       text-shadow: 0 2px 0 rgba(0,0,0,.35);
     }
@@ -158,7 +171,7 @@
     }
 
     .name-box {
-      font-size: 64px;
+      font-size: 84px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -166,7 +179,7 @@
 
     .value-box {
       justify-content: flex-end;
-      font-size: 56px;
+      font-size: 72px;
       cursor: text;
       user-select: none;
     }
@@ -437,6 +450,7 @@
 
     flipToggle.addEventListener('click', () => {
       flipCard.classList.toggle('flipped');
+      document.getElementById('app').classList.toggle('editing');
     });
 
     function clampRows() {
@@ -481,8 +495,9 @@
       return { primary: pct, secondary: wins, tertiary: -losses };
     }
 
-    function sortItems() {
-      state.items.sort((a, b) => {
+    function getSortedItems() {
+      const items = state.items.map((item, i) => ({ ...item, __index: i }));
+      items.sort((a, b) => {
         const sa = scoreForSort(a);
         const sb = scoreForSort(b);
         if (sb.primary !== sa.primary) return sb.primary - sa.primary;
@@ -490,6 +505,7 @@
         if (sb.tertiary !== sa.tertiary) return sb.tertiary - sa.tertiary;
         return a.name.localeCompare(b.name);
       });
+      return items;
     }
 
     function fitBoardRows() {
@@ -497,9 +513,9 @@
       const wrapHeight = 1080 - 120;
       const gap = 16;
       const rowHeight = Math.floor((wrapHeight - (count - 1) * gap) / count);
-      const nameSize = Math.max(34, Math.min(64, Math.floor(rowHeight * 0.62)));
-      const valueSize = Math.max(28, Math.min(56, Math.floor(rowHeight * 0.54)));
-      const rankSize = Math.max(20, Math.min(38, Math.floor(rowHeight * 0.40)));
+      const nameSize = Math.max(40, Math.min(96, Math.floor(rowHeight * 0.72)));
+      const valueSize = Math.max(34, Math.min(84, Math.floor(rowHeight * 0.64)));
+      const rankSize = Math.max(26, Math.min(56, Math.floor(rowHeight * 0.48)));
       document.documentElement.style.setProperty('--dynamic-row-height', rowHeight + 'px');
       document.documentElement.style.setProperty('--dynamic-name-size', nameSize + 'px');
       document.documentElement.style.setProperty('--dynamic-value-size', valueSize + 'px');
@@ -508,12 +524,12 @@
 
     function renderBoard() {
       clampRows();
-      sortItems();
+      const sorted = getSortedItems();
       fitBoardRows();
       board.innerHTML = '';
       emptyState.style.display = state.items.length ? 'none' : 'grid';
 
-      state.items.forEach((item, index) => {
+      sorted.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'standing-row';
         row.style.background = item.barColor || '#444';
@@ -524,7 +540,7 @@
             ${item.imageUrl ? `<img src="${item.imageUrl}" style="max-height:70%;max-width:70%;object-fit:contain;">` : ``}
           </div>
           <div class="name-box" style="color:${item.textColor || '#fff'};font-size:var(--dynamic-name-size)">${escapeHtml(item.name || '')}</div>
-          <div class="value-box" style="color:${item.valueColor || '#fff'};font-size:var(--dynamic-value-size)" contenteditable="true" spellcheck="false" data-index="${index}">${escapeHtml(item.value || '')}</div>
+          <div class="value-box" style="color:${item.valueColor || '#fff'};font-size:var(--dynamic-value-size)" contenteditable="true" spellcheck="false" data-index="${item.__index}">${escapeHtml(item.value || '')}</div>
         `;
         board.appendChild(row);
       });
@@ -541,11 +557,9 @@
     }
 
     function handleFrontValueEdit(e) {
-      const sortedItems = [...state.items];
       const idx = Number(e.currentTarget.dataset.index);
-      if (!Number.isInteger(idx) || !sortedItems[idx]) return;
-      sortedItems[idx].value = e.currentTarget.textContent.trim();
-      state.items = sortedItems;
+      if (!Number.isInteger(idx) || !state.items[idx]) return;
+      state.items[idx].value = e.currentTarget.textContent.trim();
       renderAll();
     }
 
@@ -603,8 +617,13 @@
       });
 
       rowsPanel.querySelectorAll('input[data-field]').forEach(input => {
-        const eventName = input.type === 'radio' || input.type === 'color' ? 'input' : 'input';
-        input.addEventListener(eventName, handleEditorChange);
+        if (input.type === 'radio' || input.type === 'color') {
+          input.addEventListener('change', handleEditorCommit);
+        } else {
+          input.addEventListener('input', handleEditorTyping);
+          input.addEventListener('change', handleEditorCommit);
+          input.addEventListener('blur', handleEditorCommit);
+        }
       });
 
       rowsPanel.querySelectorAll('button[data-remove]').forEach(btn => {
@@ -617,7 +636,16 @@
       });
     }
 
-    function handleEditorChange(e) {
+    function handleEditorTyping(e) {
+      const index = Number(e.target.dataset.index);
+      const field = e.target.dataset.field;
+      if (!state.items[index] || !field) return;
+      state.items[index][field] = e.target.value;
+      saveState();
+      renderBoard();
+    }
+
+    function handleEditorCommit(e) {
       const index = Number(e.target.dataset.index);
       const field = e.target.dataset.field;
       if (!state.items[index] || !field) return;
