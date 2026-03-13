@@ -129,6 +129,25 @@
       overflow: hidden;
     }
 
+    .event.pec {
+      background: #05368A;
+    }
+
+    .event.mw {
+      background: #101029;
+    }
+
+    .event.hs {
+      background: #101029;
+      animation: flash-red 1s infinite;
+    }
+
+    @keyframes flash-red {
+      0% { background: #101029; }
+      50% { background: #ff0000; }
+      100% { background: #101029; }
+    }
+
     .event::before {
       content: "";
       position: absolute;
@@ -173,6 +192,11 @@
       line-height: 1;
       color: #ffffff;
       text-shadow: var(--glow);
+      transition: color 250ms ease;
+    }
+
+    .value.flash-update {
+      color: #d64309;
     }
 
     .label {
@@ -244,17 +268,45 @@
       }
     ];
 
+    const stats = [
+      {
+        name: "Social Views (since 9/1/25)",
+        value: 4402827,
+        step: 1,
+        interval: 5080
+      },
+      {
+        name: "Followers",
+        value: 28267,
+        step: 5,
+        interval: 3600000
+      }
+    ];
+
     const track = document.getElementById("tickerTrack");
     const emptyState = document.getElementById("emptyState");
+
     let cards = [];
+    let statCards = [];
 
     function pad(value) {
       return String(value).padStart(2, "0");
     }
 
+    function formatNumber(num) {
+      return num.toLocaleString();
+    }
+
     function createEventElement(event) {
       const article = document.createElement("article");
-      article.className = "event";
+
+      let extraClass = "";
+      if (event.name === "PEC Championships") extraClass = " pec";
+      if (event.name === "MW Championships") extraClass = " mw";
+      if (event.name === "High School State") extraClass = " hs";
+
+      article.className = "event" + extraClass;
+
       article.innerHTML = `
         <span class="event-name">${event.name}</span>
         <span class="divider"></span>
@@ -264,6 +316,7 @@
           <span class="chunk"><span class="value" data-part="minutes">00</span><span class="label">M</span></span>
         </div>
       `;
+
       return {
         ...event,
         targetMs: new Date(event.target).getTime(),
@@ -275,11 +328,67 @@
       };
     }
 
+    function createStatElement(stat) {
+      const article = document.createElement("article");
+      article.className = "event";
+
+      article.innerHTML = `
+        <span class="event-name">${stat.name}</span>
+        <span class="divider"></span>
+        <div class="countdown">
+          <span class="chunk"><span class="value" data-stat="${stat.name}">${formatNumber(stat.value)}</span></span>
+        </div>
+      `;
+
+      const valueEl = article.querySelector(`[data-stat="${stat.name}"]`);
+
+      function flashStatValues() {
+        valueEl.classList.add("flash-update");
+
+        const rendered = track.querySelectorAll(`[data-stat="${stat.name}"]`);
+        rendered.forEach(el => {
+          el.classList.add("flash-update");
+        });
+
+        setTimeout(() => {
+          valueEl.classList.remove("flash-update");
+          const renderedAfter = track.querySelectorAll(`[data-stat="${stat.name}"]`);
+          renderedAfter.forEach(el => {
+            el.classList.remove("flash-update");
+          });
+        }, 250);
+      }
+
+      setInterval(() => {
+        stat.value += stat.step;
+        valueEl.textContent = formatNumber(stat.value);
+
+        const rendered = track.querySelectorAll(`[data-stat="${stat.name}"]`);
+        rendered.forEach(el => {
+          el.textContent = formatNumber(stat.value);
+        });
+
+        flashStatValues();
+      }, stat.interval);
+
+      return {
+        element: article
+      };
+    }
+
     function rebuildTrack() {
       track.innerHTML = "";
+
       const activeCards = cards.filter(card => card.active);
 
-      if (activeCards.length === 0) {
+      const sequence = [
+        ...activeCards,
+        ...statCards,
+        ...activeCards,
+        ...statCards
+      ];
+
+      if (sequence.length === 0) {
         emptyState.classList.add("show");
         track.style.display = "none";
         return;
@@ -288,27 +397,26 @@
       emptyState.classList.remove("show");
       track.style.display = "inline-flex";
 
-      const sequence = [...activeCards, ...activeCards];
       sequence.forEach((card, index) => {
         if (index > 0) {
           const dot = document.createElement("span");
           dot.className = "dot";
           track.appendChild(dot);
         }
+
         track.appendChild(card.element.cloneNode(true));
       });
     }
 
     cards = events.map(createEventElement);
+    statCards = stats.map(createStatElement);
 
     function updateCountdowns() {
       const now = Date.now();
       let changed = false;
 
       for (const card of cards) {
-        if (!card.active) {
-          continue;
-        }
+        if (!card.active) continue;
 
         const diff = card.targetMs - now;
 
@@ -333,10 +441,16 @@
       } else {
         const activeCards = cards.filter(card => card.active);
         const renderedEvents = track.querySelectorAll('.event');
+
         renderedEvents.forEach((eventEl, index) => {
           const source = activeCards[index % activeCards.length];
+
           if (!source) return;
-          eventEl.querySelector('[data-part="days"]').textContent = source.daysEl.textContent;
+
+          const days = eventEl.querySelector('[data-part="days"]');
+          if (!days) return;
+
+          days.textContent = source.daysEl.textContent;
           eventEl.querySelector('[data-part="hours"]').textContent = source.hoursEl.textContent;
           eventEl.querySelector('[data-part="minutes"]').textContent = source.minutesEl.textContent;
         });
@@ -345,6 +459,7 @@
 
     rebuildTrack();
     updateCountdowns();
+
     setInterval(updateCountdowns, 1000);
   </script>
 </body>
