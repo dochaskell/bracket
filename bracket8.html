@@ -748,21 +748,29 @@
       if (state.history.length > 100) state.history.shift();
     }
 
-    function teamMarkup(team, selectedId) {
-      if (!team) return '<div class="name">TBD</div>';
-      return `<div class="name">${escapeHtml(team.name || 'Unnamed Team')}</div>`;
+    function refLabel(ref) {
+      const [type, value] = ref;
+      if (type === 'seed') {
+        const seedTeam = state.teams[value];
+        return seedTeam?.name || `Seed ${value + 1}`;
+      }
+      if (type === 'winner') return `Winner ${value}`;
+      if (type === 'loser') return `Loser ${value}`;
+      return 'TBD';
     }
 
-    function applySlot(el, team, selectedId) {
-      el.innerHTML = teamMarkup(team, selectedId);
-      el.classList.toggle('empty', !team || !team.name);
+    function teamMarkup(team, fallbackLabel) {
+      const label = team?.name || fallbackLabel || 'TBD';
+      return `<div class="name">${escapeHtml(label)}</div>`;
+    }
+
+    function applySlot(el, team, fallbackLabel, selectedId) {
+      el.innerHTML = teamMarkup(team, fallbackLabel);
+      el.classList.toggle('empty', !team);
       const accent = team?.color || '#cbd5e1';
       el.style.setProperty('--accent', accent);
-      if (team) {
-        el.style.background = 'rgba(255,255,255,0.98)';
-      } else {
-        el.style.background = 'rgba(255,255,255,0.96)';
-      }
+      el.style.background = team ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.88)';
+      el.style.opacity = team ? '1' : '0.92';
     }
 
     function renderBracket() {
@@ -773,7 +781,8 @@
         const side = el.dataset.side;
         const match = matches[matchId];
         const team = match ? match[side] : null;
-        applySlot(el, team, match?.selectedId || null);
+        const fallbackLabel = refLabel(sourceMatches[matchId][side]);
+        applySlot(el, team, fallbackLabel, match?.selectedId || null);
         const isSelected = !!team && match?.selectedId === team.id;
         el.classList.toggle('selected', isSelected);
         el.classList.toggle('clickable', !!team);
