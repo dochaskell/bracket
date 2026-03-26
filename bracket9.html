@@ -23,8 +23,8 @@
     *{box-sizing:border-box}
     html,body{
       margin:0;
-      width:1600px;
-      height:900px;
+      width:1920px;
+      height:1080px;
       overflow:hidden;
       background:var(--bg);
       font-family:var(--font);
@@ -48,7 +48,7 @@
     .back{
       transform:rotateY(180deg);
       padding:0;
-      width:1600px;height:900px;
+      width:1920px;height:1080px;
     }
 
     .flip-corner{
@@ -78,8 +78,8 @@
       position:absolute;
       inset:10px;
       display:grid;
-      grid-template-columns:248px 248px 248px 248px 228px;
-      grid-template-rows:48px 360px 48px 320px;
+      grid-template-columns:300px 300px 300px 300px 280px;
+      grid-template-rows:64px 520px 64px 420px;
       column-gap:12px;
       row-gap:6px;
     }
@@ -103,16 +103,16 @@
     .column,.stack{position:relative}
     .stack{position:absolute;inset:0}
 
-    .match{position:absolute;width:232px;height:68px}
-    .match.wide{width:248px}
-    .match.narrow{width:220px}
+    .match{position:absolute;width:280px;height:110px}
+    .match.wide{width:300px}
+    .match.narrow{width:260px}
 
     .slot{
       z-index:2;
       position:absolute;
       left:0;
-      width:196px;
-      height:28px;
+      width:240px;
+      height:36px;
       display:flex;
       align-items:center;
       padding:0 10px;
@@ -122,16 +122,27 @@
       box-shadow:0 4px 10px rgba(0,0,0,.08);
       border-radius:8px;
     }
-    .slot.top{top:6px}
-    .slot.bottom{top:36px}
+    .slot.top{top:12px}
+    .slot.bottom{top:54px}
     .slot.clickable{cursor:pointer;transition:transform 140ms ease,box-shadow 140ms ease,border-color 140ms ease}
     .slot.clickable:hover:not(.empty){transform:translateY(-1px);box-shadow:0 8px 16px rgba(0,0,0,.12)}
     .slot.selected{outline:2px solid rgba(15,23,42,.14);outline-offset:2px}
     .slot.empty{color:rgba(100,116,139,.78);border-style:dashed;border-right-style:solid}
+    .slot.hidden-seed{
+      background:#F8FAFC !important;
+      color:#64748B !important;
+      border-color:rgba(15,23,42,.12);
+      border-right-color:#CBD5E1 !important;
+    }
+    .slot.hidden-seed .name{
+      font-size:13px;
+      letter-spacing:.08em;
+      color:#64748B !important;
+    }
     .slot .name{
       font-family:'Anton','Impact','Arial Black',sans-serif;
       font-weight:900;
-      font-size:clamp(12px, 1.4vw, 18px);
+      font-size:clamp(16px, 1.8vw, 26px);
       letter-spacing:.02em;
       text-transform:uppercase;
       white-space:nowrap;
@@ -571,6 +582,7 @@
         { id: 't2', name: 'Seed 2', primaryColor: '#FFFFFF', secondaryColor: '#8B5CF6' }
       ],
       winners: {},
+      hiddenSeeds: {},
       history: []
     });
 
@@ -590,6 +602,7 @@
 
     const TEAM_SLOT_LABELS = ['Seed 1','Seed 2','Seed 3','Seed 4','Seed 5','Seed 6','Seed 7','Seed 8','Seed 9'];
     const SEED_TO_STATE_INDEX = [0, 8, 5, 4, 3, 6, 7, 2, 1];
+    const HIDDEN_SEED_PLACEHOLDER = 'Hidden Seed';
 
     const matchOrder = ['A','B','C','E','D','J','K','L','F','G','N','O','H','P','Q','I'];
     const sourceMatches = {
@@ -621,24 +634,36 @@
     const slotElements = [...document.querySelectorAll('.slot[data-match]')];
 
     function loadState() {
+      const defaults = defaultState();
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return defaultState();
+        if (!raw) return defaults;
         const parsed = JSON.parse(raw);
+        const teams = Array.isArray(parsed.teams) && parsed.teams.length === 9
+          ? parsed.teams.map((team, index) => ({
+              id: team.id || defaults.teams[index].id,
+              name: team.name || defaults.teams[index].name,
+              primaryColor: hex(team.primaryColor || team.color, defaults.teams[index].primaryColor),
+              secondaryColor: hex(team.secondaryColor || team.color, defaults.teams[index].secondaryColor)
+            }))
+          : defaults.teams;
+
+        const allowedIds = new Set(teams.map(team => team.id));
+        const hiddenSeeds = {};
+        if (parsed.hiddenSeeds && typeof parsed.hiddenSeeds === 'object') {
+          Object.entries(parsed.hiddenSeeds).forEach(([teamId, isHidden]) => {
+            if (allowedIds.has(teamId) && !!isHidden) hiddenSeeds[teamId] = true;
+          });
+        }
+
         return {
-          teams: Array.isArray(parsed.teams) && parsed.teams.length === 9
-            ? parsed.teams.map((team, index) => ({
-                id: team.id || defaultState().teams[index].id,
-                name: team.name || defaultState().teams[index].name,
-                primaryColor: hex(team.primaryColor || team.color, defaultState().teams[index].primaryColor),
-                secondaryColor: hex(team.secondaryColor || team.color, defaultState().teams[index].secondaryColor)
-              }))
-            : defaultState().teams,
+          teams,
           winners: parsed.winners || {},
+          hiddenSeeds,
           history: Array.isArray(parsed.history) ? parsed.history : []
         };
       } catch {
-        return defaultState();
+        return defaults;
       }
     }
 
@@ -710,13 +735,43 @@
       if (hexSecondary) hexSecondary.value = secondary;
     }
 
+    function getSeedNumberByTeamId(teamId) {
+      const match = String(teamId || '').match(/^t(\d+)$/);
+      return match ? Number(match[1]) : null;
+    }
+
+    function isSeedHidden(team) {
+      return !!(team?.id && state.hiddenSeeds?.[team.id]);
+    }
+
+    function getDisplayedTeam(team) {
+      if (!team) return null;
+      if (!isSeedHidden(team)) return team;
+      return {
+        ...team,
+        name: HIDDEN_SEED_PLACEHOLDER,
+        primaryColor: '#F8FAFC',
+        secondaryColor: '#CBD5E1',
+        __hiddenSeed: true
+      };
+    }
+
     function normalizeState() {
+      const defaults = defaultState();
       state.teams = state.teams.map((team, index) => ({
-        id: team.id || defaultState().teams[index].id,
+        id: team.id || defaults.teams[index].id,
         name: team.name || '',
-        primaryColor: hex(team.primaryColor, defaultState().teams[index].primaryColor),
-        secondaryColor: hex(team.secondaryColor, defaultState().teams[index].secondaryColor)
+        primaryColor: hex(team.primaryColor, defaults.teams[index].primaryColor),
+        secondaryColor: hex(team.secondaryColor, defaults.teams[index].secondaryColor)
       }));
+
+      if (!state.hiddenSeeds || typeof state.hiddenSeeds !== 'object') state.hiddenSeeds = {};
+      const validTeamIds = new Set(state.teams.map(team => team.id));
+      const normalizedHiddenSeeds = {};
+      Object.entries(state.hiddenSeeds).forEach(([teamId, isHidden]) => {
+        if (validTeamIds.has(teamId) && !!isHidden) normalizedHiddenSeeds[teamId] = true;
+      });
+      state.hiddenSeeds = normalizedHiddenSeeds;
 
       let changed = true;
       while (changed) {
@@ -763,7 +818,11 @@
     }
 
     function pushHistory() {
-      state.history.push({ winners: cloneState(state.winners), teams: cloneState(state.teams) });
+      state.history.push({
+        winners: cloneState(state.winners),
+        teams: cloneState(state.teams),
+        hiddenSeeds: cloneState(state.hiddenSeeds)
+      });
       if (state.history.length > 100) state.history.shift();
     }
 
@@ -801,9 +860,11 @@
     }
 
     function applySlot(el, team, fallbackLabel) {
-      el.innerHTML = teamMarkup(team, fallbackLabel);
-      el.classList.toggle('empty', !team || !team.name);
-      applyTeamStyles(el, team);
+      const displayedTeam = getDisplayedTeam(team);
+      el.innerHTML = teamMarkup(displayedTeam, fallbackLabel);
+      el.classList.toggle('empty', !displayedTeam || !displayedTeam.name);
+      el.classList.toggle('hidden-seed', !!displayedTeam?.__hiddenSeed);
+      applyTeamStyles(el, displayedTeam);
     }
 
     function renderBracket() {
@@ -949,11 +1010,38 @@
       renderBracket();
     }
 
+    function toggleSeedVisibility(seedNumber) {
+      const teamId = `t${seedNumber}`;
+      const exists = state.teams.some(team => team.id === teamId);
+      if (!exists) return;
+      pushHistory();
+      if (state.hiddenSeeds[teamId]) delete state.hiddenSeeds[teamId];
+      else state.hiddenSeeds[teamId] = true;
+      renderBracket();
+    }
+
+    function isEditableTarget(target) {
+      if (!target) return false;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+    }
+
+    function handleKeydown(event) {
+      if (event.defaultPrevented || event.repeat) return;
+      if (isEditableTarget(event.target)) return;
+
+      if (/^[1-9]$/.test(event.key)) {
+        event.preventDefault();
+        toggleSeedVisibility(Number(event.key));
+      }
+    }
+
     function undo() {
       const previous = state.history.pop();
       if (!previous) return;
       state.teams = previous.teams;
       state.winners = previous.winners;
+      state.hiddenSeeds = previous.hiddenSeeds || {};
       renderEditor();
       renderBracket();
     }
@@ -984,6 +1072,7 @@
     document.getElementById('resetBracketBtn')?.addEventListener('click', resetBracket);
     document.getElementById('clearAllBtn')?.addEventListener('click', clearAll);
     slotElements.forEach(el => el.addEventListener('click', handleSlotClick));
+    document.addEventListener('keydown', handleKeydown);
 
     renderEditor();
     renderBracket();
