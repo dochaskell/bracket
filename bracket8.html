@@ -35,7 +35,7 @@ const MATCHES=[
 {id:'A',row:2,col:1,top:0,bottom:1,label:'A',w:'',y:0,con:'medium'},{id:'B',row:2,col:1,top:2,bottom:3,label:'B',y:126,con:'medium'},{id:'C',row:2,col:1,top:4,bottom:5,label:'C',y:252,con:'medium'},{id:'D',row:2,col:1,top:6,bottom:7,label:'D',y:378,con:'medium'},
 {id:'E',row:2,col:2,top:['winner','A'],bottom:['winner','B'],label:'E',y:63,w:'wide',con:'tall'},{id:'F',row:2,col:2,top:['winner','C'],bottom:['winner','D'],label:'F',y:315,w:'wide',con:'tall'},
 {id:'G',row:2,col:3,top:['winner','E'],bottom:['winner','F'],label:'G',y:189,w:'wide',con:'medium'},{id:'H',row:2,col:4,top:['winner','G'],bottom:['winner','O'],label:'H',y:189,w:'narrow'},
-{id:'J',row:4,col:1,top:['loser','A'],bottom:['loser','B'],label:'J',y:0,con:'short'},{id:'K',row:4,col:1,top:['loser','C'],bottom:['loser','D'],label:'K',y:108,con:'short'},
+{id:'J',row:4,col:1,top:['loser','C'],bottom:['loser','D'],label:'J',y:0,con:'short'},{id:'K',row:4,col:1,top:['loser','A'],bottom:['loser','B'],label:'K',y:108,con:'short'},
 {id:'L',row:4,col:2,top:['winner','J'],bottom:['loser','E'],label:'L',y:8,w:'wide',con:'short'},{id:'M',row:4,col:2,top:['winner','K'],bottom:['loser','F'],label:'M',y:116,w:'wide',con:'short'},
 {id:'N',row:4,col:3,top:['winner','L'],bottom:['winner','M'],label:'N',y:62,w:'wide',con:'short'},{id:'O',row:4,col:4,top:['winner','N'],bottom:['loser','G'],label:'O',y:62,w:'narrow'}
 ];
@@ -72,7 +72,15 @@ function updatePreview(){const d=$('#previewFrame').contentDocument||$('#preview
 function undo(){const p=state.history.pop();if(!p)return;state.teams=p.teams;state.winners=p.winners;bindEditor();renderBracket()}
 function reset(){push();state.winners={};renderBracket()}
 function clearAll(){push();state=defaultState();bindEditor();renderBracket()}
-$('#flipToEdit').onclick=()=>$('#card').classList.add('flipped');$('#flipToView').onclick=()=>$('#card').classList.remove('flipped');$('#undoBtn').onclick=undo;$('#resetBracketBtn').onclick=reset;$('#clearAllBtn').onclick=clearAll;
+$('#flipToEdit').onclick=()=>$('#card').classList.add('flipped');$('#flipToView').onclick=()=>$('#card').classList.remove('flipped');
+// Press "F" to flip the card
+window.addEventListener('keydown',(e)=>{
+  if(e.key==='f' || e.key==='F'){
+    const c=$('#card');
+    c.classList.toggle('flipped');
+  }
+});
+$('#undoBtn').onclick=undo;$('#resetBracketBtn').onclick=reset;$('#clearAllBtn').onclick=clearAll;
 buildGrid();bindEditor();renderBracket();
 </script>
 </body>
