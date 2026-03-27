@@ -166,7 +166,7 @@
       border-top:4px solid #0f7a40;
     }
 
-    .winner-column .match{left:0}
+    .winner-column .match{left:14px}
     .semis-column .match{left:0}
     .final-column .match{left:0}
     .grand-column .match{left:0}
@@ -667,6 +667,10 @@
       return JSON.parse(JSON.stringify(input));
     }
 
+    function normalizeHex(value) {
+      return /^#[0-9A-Fa-f]{6}$/.test(String(value || '')) ? String(value).toUpperCase() : '#94A3B8';
+    }
+
     function hex(v, fallback = '#94A3B8') {
       return /^#[0-9A-Fa-f]{6}$/.test(v || '') ? v.toUpperCase() : fallback;
     }
@@ -731,10 +735,6 @@
         secondaryColor: hex(team.secondaryColor, defaultState().teams[index].secondaryColor)
       }));
 
-      if (!state.hiddenSeeds || typeof state.hiddenSeeds !== 'object') {
-        state.hiddenSeeds = {};
-      }
-
       let changed = true;
       while (changed) {
         changed = false;
@@ -788,16 +788,18 @@
       if (state.history.length > 100) state.history.shift();
     }
 
+    function sourceLabel(ref) {
+      const [type, value] = ref;
+      if (type === 'seed') {
+        const seededTeam = state.teams[value];
+        return seededTeam?.name || `Seed ${value + 1}`;
+      }
+      return `${type === 'winner' ? 'Winner' : 'Loser'} ${value}`;
+    }
+
     function getSeedNumberByStateIndex(stateIndex) {
       const displayIndex = SEED_TO_STATE_INDEX.indexOf(stateIndex);
       return displayIndex >= 0 ? displayIndex + 1 : null;
-    }
-
-    function getSeedNumberForTeam(team) {
-      if (!team?.id) return null;
-      const stateIndex = state.teams.findIndex(candidate => candidate.id === team.id);
-      if (stateIndex === -1) return null;
-      return getSeedNumberByStateIndex(stateIndex);
     }
 
     function isSeedHidden(team) {
@@ -805,17 +807,8 @@
       return !!state.hiddenSeeds?.[team.id];
     }
 
-    function sourceLabel(ref) {
-      const [type, value] = ref;
-      if (type === 'seed') {
-        const seedNumber = getSeedNumberByStateIndex(value);
-        return seedNumber ? `Seed ${seedNumber}` : `Seed ${value + 1}`;
-      }
-      return `${type === 'winner' ? 'Winner' : 'Loser'} ${value}`;
-    }
-
     function getHiddenPlaceholder(team, fallbackLabel) {
-      const seedNumber = getSeedNumberForTeam(team);
+      const seedNumber = getSeedNumberByStateIndex(state.teams.findIndex(candidate => candidate.id === team?.id));
       return seedNumber ? `Seed ${seedNumber}` : (fallbackLabel || 'Hidden');
     }
 
@@ -825,15 +818,19 @@
       return `<div class="name">${escapeHtml(label)}</div>`;
     }
 
-    function applyTeamStyles(el, team, isHidden = false) {
-      const fill = team && !isHidden ? hex(team.primaryColor, '#FFFFFF') : '#d8ded9';
+    function applyTeamStyles(el, team) {
+      const fill = team ? hex(team.primaryColor, '#FFFFFF') : '#FFFFFF';
+
       const textColor =
-        team?.name === 'Ohio State' && !isHidden
+        team?.name === 'Ohio State'
           ? '#FFFFFF'
-          : team && !isHidden
+          : team
           ? hex(team.secondaryColor, '#111111')
-          : '#6f8280';
-      const accent = team && !isHidden ? hex(team.secondaryColor, '#111111') : '#9aa8a4';
+          : '#64748B';
+
+      const accent = team
+        ? hex(team.secondaryColor, '#111111')
+        : '#CBD5E1';
 
       el.style.background = fill;
       el.style.color = textColor;
@@ -841,11 +838,9 @@
     }
 
     function applySlot(el, team, fallbackLabel) {
-      const hidden = isSeedHidden(team);
-      el.innerHTML = teamMarkup(team, fallbackLabel, hidden);
-      el.classList.toggle('empty', !team || !team.name || hidden);
-      el.classList.toggle('hidden-seed', hidden);
-      applyTeamStyles(el, team, hidden);
+      el.innerHTML = teamMarkup(team, fallbackLabel);
+      el.classList.toggle('empty', !team || !team.name);
+      applyTeamStyles(el, team);
     }
 
     function renderBracket() {
@@ -991,44 +986,11 @@
       renderBracket();
     }
 
-    function toggleSeedVisibility(seedNumber) {
-      const stateIndex = SEED_KEY_TO_STATE_INDEX[seedNumber];
-      if (stateIndex === undefined) return;
-      const team = state.teams[stateIndex];
-      if (!team?.id) return;
-      pushHistory();
-      state.hiddenSeeds[team.id] = !state.hiddenSeeds[team.id];
-      if (!state.hiddenSeeds[team.id]) delete state.hiddenSeeds[team.id];
-      renderBracket();
-    }
-
-    function handleGlobalKeydown(event) {
-      const target = event.target;
-      const isTyping = target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-      );
-      if (isTyping || event.altKey || event.ctrlKey || event.metaKey) return;
-
-      if (/^[1-9]$/.test(event.key)) {
-        event.preventDefault();
-        toggleSeedVisibility(Number(event.key));
-        return;
-      }
-
-      if (event.key.toLowerCase() === 'f') {
-        return;
-      }
-    }
-
     function undo() {
       const previous = state.history.pop();
       if (!previous) return;
       state.teams = previous.teams;
       state.winners = previous.winners;
-      state.hiddenSeeds = previous.hiddenSeeds || {};
       renderEditor();
       renderBracket();
     }
@@ -1058,11 +1020,4 @@
     document.getElementById('undoBtn')?.addEventListener('click', undo);
     document.getElementById('resetBracketBtn')?.addEventListener('click', resetBracket);
     document.getElementById('clearAllBtn')?.addEventListener('click', clearAll);
-    slotElements.forEach(el => el.addEventListener('click', handleSlotClick));
-    document.addEventListener('keydown', handleGlobalKeydown);
-
-    renderEditor();
-    renderBracket();
-  </script>
-</body>
-</html>
+    slotElements.forEach(el 
