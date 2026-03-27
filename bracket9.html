@@ -126,9 +126,22 @@
     }
     .slot.top{top:10px}
     .slot.bottom{top:56px}
-    .slot.clickable{cursor:pointer;transition:transform 140ms ease,filter 140ms ease}
-    .slot.clickable:hover:not(.empty){transform:translateY(-1px);filter:brightness(.98)}
-    .slot.selected{outline:3px solid rgba(0,0,0,.22);outline-offset:2px}
+    .slot.clickable{
+      cursor:pointer;
+      transition:transform 160ms ease,filter 160ms ease,box-shadow 180ms ease,outline-color 180ms ease;
+      will-change:transform;
+    }
+    .slot.clickable:hover:not(.empty){
+      transform:translateY(-1px) scale(1.006);
+      filter:brightness(.98);
+      box-shadow:0 8px 18px rgba(0,0,0,.10);
+    }
+    .slot.selected{
+      outline:3px solid rgba(0,0,0,.22);
+      outline-offset:2px;
+      box-shadow:0 10px 22px rgba(0,0,0,.14);
+      transform:scale(1.012);
+    }
     .slot.empty{color:#6f8280}
     .slot .name{
       font-family:'Anton','Impact','Arial Black',sans-serif;
@@ -144,15 +157,17 @@
     }
 
     .connector{
+      --connector-thickness:4px;
+      --connector-radius:12px;
       z-index:0;
       position:absolute;
       right:26px;
       width:48px;
-      border-right:4px solid #0f7a40;
-      border-top:4px solid #0f7a40;
-      border-bottom:4px solid #0f7a40;
-      border-top-right-radius:12px;
-      border-bottom-right-radius:12px;
+      border-right:var(--connector-thickness) solid #0f7a40;
+      border-top:var(--connector-thickness) solid #0f7a40;
+      border-bottom:var(--connector-thickness) solid #0f7a40;
+      border-top-right-radius:var(--connector-radius);
+      border-bottom-right-radius:var(--connector-radius);
     }
     .connector.short{height:30px;top:42px}
     .connector.medium{height:58px;top:28px}
@@ -163,7 +178,7 @@
       right:-44px;
       top:57px;
       width:44px;
-      border-top:4px solid #0f7a40;
+      border-top:var(--connector-thickness) solid #0f7a40;
     }
 
     .winner-column .match{left:14px}
@@ -595,17 +610,6 @@
 
     const TEAM_SLOT_LABELS = ['Seed 1','Seed 2','Seed 3','Seed 4','Seed 5','Seed 6','Seed 7','Seed 8','Seed 9'];
     const SEED_TO_STATE_INDEX = [0, 8, 5, 4, 3, 6, 7, 2, 1];
-    const SEED_KEY_TO_STATE_INDEX = {
-      1: 0,
-      2: 8,
-      3: 5,
-      4: 4,
-      5: 3,
-      6: 6,
-      7: 7,
-      8: 2,
-      9: 1
-    };
 
     const matchOrder = ['A','B','C','E','D','J','K','L','F','G','N','O','H','P','Q','I'];
     const sourceMatches = {
@@ -665,10 +669,6 @@
 
     function cloneState(input) {
       return JSON.parse(JSON.stringify(input));
-    }
-
-    function normalizeHex(value) {
-      return /^#[0-9A-Fa-f]{6}$/.test(String(value || '')) ? String(value).toUpperCase() : '#94A3B8';
     }
 
     function hex(v, fallback = '#94A3B8') {
@@ -797,25 +797,9 @@
       return `${type === 'winner' ? 'Winner' : 'Loser'} ${value}`;
     }
 
-    function getSeedNumberByStateIndex(stateIndex) {
-      const displayIndex = SEED_TO_STATE_INDEX.indexOf(stateIndex);
-      return displayIndex >= 0 ? displayIndex + 1 : null;
-    }
-
-    function isSeedHidden(team) {
-      if (!team?.id) return false;
-      return !!state.hiddenSeeds?.[team.id];
-    }
-
-    function getHiddenPlaceholder(team, fallbackLabel) {
-      const seedNumber = getSeedNumberByStateIndex(state.teams.findIndex(candidate => candidate.id === team?.id));
-      return seedNumber ? `Seed ${seedNumber}` : (fallbackLabel || 'Hidden');
-    }
-
-    function teamMarkup(team, fallbackLabel, isHidden = false) {
+    function teamMarkup(team, fallbackLabel) {
       if (!team) return `<div class="name">${escapeHtml(fallbackLabel || 'TBD')}</div>`;
-      const label = isHidden ? getHiddenPlaceholder(team, fallbackLabel) : (team.name || fallbackLabel || 'Unnamed Team');
-      return `<div class="name">${escapeHtml(label)}</div>`;
+      return `<div class="name">${escapeHtml(team.name || fallbackLabel || 'Unnamed Team')}</div>`;
     }
 
     function applyTeamStyles(el, team) {
@@ -845,6 +829,7 @@
 
     function renderBracket() {
       normalizeState();
+      applyBracketGeometry();
       const { matches } = computeBracket(state.teams, state.winners);
       for (const el of slotElements) {
         const matchId = el.dataset.match;
@@ -1008,6 +993,40 @@
       renderBracket();
     }
 
+    function setMatchTop(matchLetter, top) {
+      const badge = [...document.querySelectorAll('.label-badge')].find(el => el.textContent.trim() === matchLetter);
+      const wrap = badge?.parentElement;
+      if (wrap) wrap.style.top = `${Math.round(top)}px`;
+    }
+
+    function applyBracketGeometry() {
+      const tops = {
+        B: 18,
+        C: 158,
+        D: 300,
+        E: 414,
+        F: 88,
+        K: 68,
+        L: 214,
+        N: 68,
+        O: 214,
+        P: 146,
+        Q: 146
+      };
+
+      const matchHeight = 114;
+      const slotBottomCenter = 78;
+      const slotCenterOffset = matchHeight / 2;
+
+      tops.A = tops.B + slotBottomCenter - slotCenterOffset;
+      tops.J = 82;
+      tops.G = ((tops.D + slotCenterOffset) + (tops.E + slotCenterOffset)) / 2 - slotCenterOffset;
+      tops.H = ((tops.F + slotCenterOffset) + (tops.G + slotCenterOffset)) / 2 - slotCenterOffset;
+      tops.I = tops.H;
+
+      Object.entries(tops).forEach(([letter, top]) => setMatchTop(letter, top));
+    }
+
     if (!document.getElementById('schoolPresetList')) {
       const datalist = document.createElement('datalist');
       datalist.id = 'schoolPresetList';
@@ -1020,4 +1039,11 @@
     document.getElementById('undoBtn')?.addEventListener('click', undo);
     document.getElementById('resetBracketBtn')?.addEventListener('click', resetBracket);
     document.getElementById('clearAllBtn')?.addEventListener('click', clearAll);
-    slotElements.forEach(el 
+    slotElements.forEach(el => el.addEventListener('click', handleSlotClick));
+
+    applyBracketGeometry();
+    renderEditor();
+    renderBracket();
+  </script>
+</body>
+</html>
